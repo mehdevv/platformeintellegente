@@ -73,10 +73,18 @@ export async function cancelSectorAccess(supabase, entitlementId) {
     return supabase.rpc('cancel_my_sector_access', { p_entitlement_id: entitlementId })
 }
 
+/** @param {{ expires_at?: string | null }} row */
 export function isEntitlementActive(row) {
     if (!row) return false
     if (!row.expires_at) return true
-    return new Date(row.expires_at) > new Date()
+    const expiresMs = new Date(row.expires_at).getTime()
+    if (Number.isNaN(expiresMs)) return false
+    return expiresMs > Date.now()
+}
+
+/** PostgREST `.or()` filter: only rows that are still active (matches `has_report_entitlement`). */
+export function activeEntitlementsOrFilter(now = new Date()) {
+    return `expires_at.is.null,expires_at.gt.${now.toISOString()}`
 }
 
 export function formatPlanTier(tier) {

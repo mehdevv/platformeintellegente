@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import Button from '@mui/material/Button'
@@ -26,7 +26,7 @@ import ReportCatalogCard from '../components/reports/ReportCatalogCard'
 import ReportCatalogFilters from '../components/reports/ReportCatalogFilters'
 import { MotionFadeInUp, MotionInView, MotionStagger, MotionStaggerItem } from '../components/motion/Motion'
 import { useAuth } from '../context/AuthContext'
-import { buildOwnedReportAccess, isReportOwned } from '../lib/reportAccess'
+import { fetchUserOwnedReportAccess, isReportOwned } from '../lib/reportAccess'
 import { reportPassesCatalogFilters } from '../lib/reportCatalogFilter'
 import { usePriceRangeUnits } from '../hooks/usePriceRangeUnits'
 
@@ -78,6 +78,7 @@ function FiltersPanel({
 
 export default function ReportsListingPage() {
     const { t } = useTranslation()
+    const location = useLocation()
     const { supabase, user } = useAuth()
     const [reports, setReports] = useState([])
     const [access, setAccess] = useState({ ownedReportIds: new Set(), ownedSectorIds: new Set() })
@@ -113,23 +114,36 @@ export default function ReportsListingPage() {
         }
     }, [supabase])
 
+    const refreshOwnedAccess = useCallback(async () => {
+        if (!user) {
+            setAccess({ ownedReportIds: new Set(), ownedSectorIds: new Set() })
+            return
+        }
+        setAccess(await fetchUserOwnedReportAccess(supabase, user.id))
+    }, [supabase, user])
+
     useEffect(() => {
         let cancelled = false
         ;(async () => {
-            if (!supabase || !user) {
-                setAccess({ ownedReportIds: new Set(), ownedSectorIds: new Set() })
-                return
-            }
-            const { data } = await supabase
-                .from('user_report_entitlements')
-                .select('report_id, sector_id, expires_at')
-                .eq('user_id', user.id)
-            if (!cancelled) setAccess(buildOwnedReportAccess(data || []))
+            if (cancelled) return
+            await refreshOwnedAccess()
         })()
         return () => {
             cancelled = true
         }
-    }, [supabase, user])
+    }, [refreshOwnedAccess, location.pathname])
+
+    useEffect(() => {
+        const onVisible = () => {
+            if (document.visibilityState === 'visible') refreshOwnedAccess()
+        }
+        document.addEventListener('visibilitychange', onVisible)
+        window.addEventListener('focus', onVisible)
+        return () => {
+            document.removeEventListener('visibilitychange', onVisible)
+            window.removeEventListener('focus', onVisible)
+        }
+    }, [refreshOwnedAccess])
 
     const sectors = useMemo(() => {
         const map = new Map()

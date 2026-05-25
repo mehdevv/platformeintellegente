@@ -2,9 +2,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.ingest import router as ingest_router
+from app.api.rag import router as rag_router
 from app.core.config import get_settings
 
-app = FastAPI(title="Researcha AI API", version="0.1.0")
+app = FastAPI(title="Researcha AI API", version="0.2.0")
 
 _settings = get_settings()
 app.add_middleware(
@@ -16,6 +17,7 @@ app.add_middleware(
 )
 
 app.include_router(ingest_router)
+app.include_router(rag_router)
 
 
 @app.get("/health")

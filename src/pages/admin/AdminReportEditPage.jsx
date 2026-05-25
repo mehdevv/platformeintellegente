@@ -16,6 +16,7 @@ import ImageIcon from '@mui/icons-material/Image'
 import StarIcon from '@mui/icons-material/Star'
 import StarBorderIcon from '@mui/icons-material/StarBorder'
 import { useAuth } from '../../context/AuthContext'
+import { triggerReportIngest } from '../../lib/aiApi'
 import { logAdminAction } from '../../lib/adminAudit'
 import { majorAmountToCents } from '../../lib/moneyFormat'
 import { uploadImageFileToImgbb } from '../../lib/imgbbUpload'
@@ -25,7 +26,7 @@ const MAX_GALLERY_IMAGES = 16
 export default function AdminReportEditPage() {
     const { reportId } = useParams()
     const navigate = useNavigate()
-    const { supabase } = useAuth()
+    const { supabase, session } = useAuth()
     const [loading, setLoading] = useState(true)
     const [title, setTitle] = useState('')
     const [slug, setSlug] = useState('')
@@ -39,7 +40,13 @@ export default function AdminReportEditPage() {
     const [reportImages, setReportImages] = useState([])
     const [thumbnailUrl, setThumbnailUrl] = useState('')
     const [galleryBusy, setGalleryBusy] = useState(false)
+    const [hasPdf, setHasPdf] = useState(false)
+    const [chunkCount, setChunkCount] = useState(0)
+    const [indexBusy, setIndexBusy] = useState(false)
+    const [indexMsg, setIndexMsg] = useState('')
     const galleryInputRef = useRef(null)
+
+    const getAccessToken = async () => session?.access_token ?? null
 
     useEffect(() => {
         let cancelled = false
@@ -48,7 +55,7 @@ export default function AdminReportEditPage() {
                 setLoading(false)
                 return
             }
-            const [{ data: sec }, { data: rep, error }, { data: imgs }] = await Promise.all([
+            const [{ data: sec }, { data: rep, error }, { data: imgs }, { count: chunks }, { data: asset }] = await Promise.all([
                 supabase.from('sectors').select('id, name').order('name'),
                 supabase.from('reports').select('*').eq('id', reportId).single(),
                 supabase
@@ -57,6 +64,8 @@ export default function AdminReportEditPage() {
                     .eq('report_id', reportId)
                     .order('sort_order', { ascending: true })
                     .order('created_at', { ascending: true }),
+                supabase.from('report_chunks').select('id', { count: 'exact', head: true }).eq('report_id', reportId),
+                supabase.from('report_assets').select('asset_type').eq('report_id', reportId).eq('asset_type', 'full_pdf').maybeSingle(),
             ])
             if (cancelled) return
             setSectors(sec || [])
@@ -74,6 +83,8 @@ export default function AdminReportEditPage() {
             setPublishedAt(rep.published_at || null)
             setThumbnailUrl(rep.thumbnail_image_url || '')
             setReportImages(imgs || [])
+            setChunkCount(chunks ?? 0)
+            setHasPdf(!!asset)
             setLoading(false)
         })()
         return () => {
@@ -134,6 +145,21 @@ export default function AdminReportEditPage() {
             if (removed?.image_url && thumbnailUrl === removed.image_url) {
                 await persistThumbnail('')
             }
+        }
+    }
+
+    const runAiIndex = async () => {
+        setIndexBusy(true)
+        setIndexMsg('')
+        setErr('')
+        try {
+            const result = await triggerReportIngest(reportId, getAccessToken)
+            setIndexMsg(result.detail || `Indexed ${result.chunks_written} chunks.`)
+            setChunkCount(result.chunks_written ?? 0)
+        } catch (ex) {
+            setErr(ex?.message || 'AI indexing failed')
+        } finally {
+            setIndexBusy(false)
         }
     }
 
@@ -204,6 +230,24 @@ export default function AdminReportEditPage() {
                         inputProps={{ min: 0, step: '0.01' }}
                         helperText="Amount in normal units (e.g. 49.99). Stored as cents in the database."
                     />
+
+                    <Box sx={{ pt: 1, pb: 1, borderTop: '1px solid', borderColor: 'divider' }}>
+                        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
+                            AI search index
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                            Extracts text from the report PDF and stores embeddings in Supabase for the AI assistant. Requires a{' '}
+                            <strong>full_pdf</strong> upload (create flow) and a running FastAPI backend.
+                        </Typography>
+                        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mb: 1 }}>
+                            <Chip size="small" label={hasPdf ? 'PDF attached' : 'No PDF'} color={hasPdf ? 'success' : 'warning'} variant="outlined" />
+                            <Chip size="small" label={`${chunkCount} chunks indexed`} variant="outlined" />
+                        </Stack>
+                        {indexMsg && <Alert severity="success" sx={{ mb: 1 }}>{indexMsg}</Alert>}
+                        <Button variant="outlined" color="secondary" size="small" disabled={!hasPdf || indexBusy} onClick={runAiIndex}>
+                            {indexBusy ? 'Indexing…' : 'Index for AI'}
+                        </Button>
+                    </Box>
 
                     <Box sx={{ pt: 1 }}>
                         <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>

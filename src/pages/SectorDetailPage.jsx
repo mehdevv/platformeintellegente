@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import Container from '@mui/material/Container'
@@ -25,6 +25,7 @@ import { useTranslation } from 'react-i18next'
 import Header from '../components/Header'
 import Footer from '../components/Footer'
 import { useAuth } from '../context/AuthContext'
+import { activeEntitlementsOrFilter } from '../lib/accountActions'
 import { formatPriceFromCents } from '../lib/moneyFormat'
 import { reportPublicPath } from '../lib/reportPath'
 import LockOpenIcon from '@mui/icons-material/LockOpen'
@@ -41,48 +42,73 @@ export default function SectorDetailPage() {
     const [sectorSubscribed, setSectorSubscribed] = useState(false)
     const { priceRangeUnits, setPriceRangeUnits, maxPriceUnit } = usePriceRangeUnits(reports)
 
+    const refreshSectorSubscription = useCallback(
+        async sectorId => {
+            if (!supabase || !sectorId) return
+            if (!user) {
+                setSectorSubscribed(false)
+                return
+            }
+            const { data: ent } = await supabase
+                .from('user_report_entitlements')
+                .select('id')
+                .eq('user_id', user.id)
+                .eq('sector_id', sectorId)
+                .or(activeEntitlementsOrFilter())
+                .limit(1)
+            setSectorSubscribed(Array.isArray(ent) && ent.length > 0)
+        },
+        [supabase, user],
+    )
+
+    const loadSector = useCallback(async () => {
+        if (!supabase || !slug) {
+            setLoading(false)
+            return
+        }
+        setLoading(true)
+        const { data: sec, error: e1 } = await supabase.from('sectors').select('*').eq('slug', slug).eq('is_published', true).maybeSingle()
+        if (e1 || !sec) {
+            setError(e1?.message || 'Sector not found')
+            setSector(null)
+            setSectorSubscribed(false)
+            setLoading(false)
+            return
+        }
+        setSector(sec)
+        const { data: reps } = await supabase
+            .from('reports')
+            .select('id, slug, title, summary, published_at, price_cents, currency, thumbnail_image_url')
+            .eq('sector_id', sec.id)
+            .eq('status', 'published')
+            .order('published_at', { ascending: false, nullsFirst: false })
+        setReports(reps || [])
+        await refreshSectorSubscription(sec.id)
+        setLoading(false)
+    }, [supabase, slug, refreshSectorSubscription])
+
     useEffect(() => {
         let cancelled = false
         ;(async () => {
-            if (!supabase || !slug) {
-                setLoading(false)
-                return
-            }
-            const { data: sec, error: e1 } = await supabase.from('sectors').select('*').eq('slug', slug).eq('is_published', true).maybeSingle()
+            await loadSector()
             if (cancelled) return
-            if (e1 || !sec) {
-                setError(e1?.message || 'Sector not found')
-                setSector(null)
-                setLoading(false)
-                return
-            }
-            setSector(sec)
-            const { data: reps } = await supabase
-                .from('reports')
-                .select('id, slug, title, summary, published_at, price_cents, currency, thumbnail_image_url')
-                .eq('sector_id', sec.id)
-                .eq('status', 'published')
-                .order('published_at', { ascending: false, nullsFirst: false })
-            if (!cancelled) setReports(reps || [])
-            if (user) {
-                const nowIso = new Date().toISOString()
-                const { data: ent } = await supabase
-                    .from('user_report_entitlements')
-                    .select('id')
-                    .eq('user_id', user.id)
-                    .eq('sector_id', sec.id)
-                    .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
-                    .limit(1)
-                if (!cancelled) setSectorSubscribed(Array.isArray(ent) && ent.length > 0)
-            } else {
-                setSectorSubscribed(false)
-            }
-            setLoading(false)
         })()
         return () => {
             cancelled = true
         }
-    }, [supabase, slug, user])
+    }, [loadSector])
+
+    useEffect(() => {
+        const onVisible = () => {
+            if (document.visibilityState === 'visible' && sector?.id) refreshSectorSubscription(sector.id)
+        }
+        document.addEventListener('visibilitychange', onVisible)
+        window.addEventListener('focus', onVisible)
+        return () => {
+            document.removeEventListener('visibilitychange', onVisible)
+            window.removeEventListener('focus', onVisible)
+        }
+    }, [sector?.id, refreshSectorSubscription])
 
     const sectorStats = useMemo(() => {
         const total = reports.length

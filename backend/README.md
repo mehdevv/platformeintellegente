@@ -15,7 +15,8 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 - Health: <http://localhost:8000/health>
-- Ingest stub: `GET /v1/ingest/health`, `POST /v1/reports/{report_id}/ingest` (501 until implemented)
+- RAG chat: `POST /v1/chat` (Bearer Supabase user JWT, SSE stream)
+- Ingest: `POST /v1/reports/{report_id}/ingest` (staff JWT), `GET /v1/reports/{report_id}/ingest/status`
 - Docs: <http://localhost:8000/docs>
 
 **PDF → RAG:** `docs/pdf-ingest-rag-pipeline.md` (storage + `report_chunks`). **Latency / streaming:** `docs/fastapi-rag-railway-plan.md`.
@@ -23,9 +24,12 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ## Railway
 
 1. New project → **Deploy from GitHub** → select this repo.
-2. Service **Settings → Root Directory** → `backend`.
-3. **Variables:** see `docs/architecture-ai-backend.md` and `.env.example`.
-4. **Start command** is defined in `Procfile` (uses `$PORT`).
+2. Service **Settings → Root Directory** → `backend` (**required**).
+3. **Variables:** see `docs/railway-deploy.md` and `.env.example`.
+4. Build uses `backend/Dockerfile` via `railway.toml` (uvicorn on `0.0.0.0:$PORT`).
+5. **Networking → Generate Domain** → use that URL as `VITE_AI_API_URL` on Vercel.
+
+If you see **Application failed to respond**, read `docs/railway-deploy.md`.
 
 ## CORS
 

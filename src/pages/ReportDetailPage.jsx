@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import Container from '@mui/material/Container'
@@ -20,6 +20,7 @@ import Header from '../components/Header'
 import Footer from '../components/Footer'
 import ReportFirstPagePdfPreview from '../components/report/ReportFirstPagePdfPreview'
 import { useAuth } from '../context/AuthContext'
+import { activeEntitlementsOrFilter } from '../lib/accountActions'
 import { formatPriceFromCents } from '../lib/moneyFormat'
 import { isUuid } from '../lib/reportPath'
 import { REPORT_PDFS_BUCKET } from '../lib/reportPdfStorage'
@@ -57,48 +58,75 @@ export default function ReportDetailPage() {
         return () => window.clearInterval(id)
     }, [bannerImageUrls])
 
+    const refreshEntitlement = useCallback(
+        async rep => {
+            if (!supabase || !rep) return
+            if (isStaff) {
+                setEntitled(true)
+                return
+            }
+            if (!user) {
+                setEntitled(false)
+                return
+            }
+            const targetFilter = rep.sector_id
+                ? `report_id.eq.${rep.id},sector_id.eq.${rep.sector_id}`
+                : `report_id.eq.${rep.id}`
+            const { data: ent } = await supabase
+                .from('user_report_entitlements')
+                .select('id, sector_id, report_id, expires_at')
+                .eq('user_id', user.id)
+                .or(targetFilter)
+                .or(activeEntitlementsOrFilter())
+                .limit(1)
+            setEntitled(Array.isArray(ent) && ent.length > 0)
+        },
+        [supabase, user, isStaff],
+    )
+
+    const loadReportAndAccess = useCallback(async () => {
+        if (!supabase || !id) {
+            setLoading(false)
+            return
+        }
+        setLoading(true)
+        setError('')
+        const col = isUuid(id) ? 'id' : 'slug'
+        const { data: rep, error: e1 } = await supabase.from('reports').select('*, sectors(id, name, slug, icon_image_url)').eq(col, id).maybeSingle()
+        if (e1 || !rep) {
+            setError(e1?.message || 'Report not found')
+            setReport(null)
+            setEntitled(false)
+            setLoading(false)
+            return
+        }
+        setReport(rep)
+        await refreshEntitlement(rep)
+        setLoading(false)
+    }, [supabase, id, refreshEntitlement])
+
     useEffect(() => {
         let cancelled = false
         ;(async () => {
-            if (!supabase || !id) {
-                setLoading(false)
-                return
-            }
-            setLoading(true)
-            setError('')
-            const col = isUuid(id) ? 'id' : 'slug'
-            const { data: rep, error: e1 } = await supabase.from('reports').select('*, sectors(id, name, slug, icon_image_url)').eq(col, id).maybeSingle()
+            await loadReportAndAccess()
             if (cancelled) return
-            if (e1 || !rep) {
-                setError(e1?.message || 'Report not found')
-                setReport(null)
-                setLoading(false)
-                return
-            }
-            setReport(rep)
-            if (user) {
-                const filter = rep.sector_id
-                    ? `report_id.eq.${rep.id},sector_id.eq.${rep.sector_id}`
-                    : `report_id.eq.${rep.id}`
-                const nowIso = new Date().toISOString()
-                const { data: ent } = await supabase
-                    .from('user_report_entitlements')
-                    .select('id, sector_id, report_id, expires_at')
-                    .eq('user_id', user.id)
-                    .or(filter)
-                    .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
-                    .limit(1)
-                if (!cancelled) setEntitled(Array.isArray(ent) && ent.length > 0)
-            } else if (!cancelled) {
-                setEntitled(false)
-            }
-            if (!cancelled && isStaff) setEntitled(true)
-            setLoading(false)
         })()
         return () => {
             cancelled = true
         }
-    }, [supabase, id, user, isStaff])
+    }, [loadReportAndAccess])
+
+    useEffect(() => {
+        const onVisible = () => {
+            if (document.visibilityState === 'visible' && report) refreshEntitlement(report)
+        }
+        document.addEventListener('visibilitychange', onVisible)
+        window.addEventListener('focus', onVisible)
+        return () => {
+            document.removeEventListener('visibilitychange', onVisible)
+            window.removeEventListener('focus', onVisible)
+        }
+    }, [report, refreshEntitlement])
 
     useEffect(() => {
         let cancelled = false
