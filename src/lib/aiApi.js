@@ -7,15 +7,11 @@ function formatApiError(body, fallback) {
     return fallback || 'AI request failed'
 }
 
-/** In dev, Vite proxies /__ai → VITE_AI_API_URL (no CORS). Production uses the public Railway URL. */
-export const baseUrl = () => {
-    if (import.meta.env.DEV) {
-        return '/__ai'
-    }
-    const url = import.meta.env.VITE_AI_API_URL
-    if (!url) throw new Error('VITE_AI_API_URL is not set for production builds.')
-    return url.replace(/\/$/, '')
-}
+/**
+ * Same-origin `/__ai` proxy — avoids CORS in dev (Vite) and prod (Vercel rewrites).
+ * Set VITE_AI_API_URL for the proxy target (see vite.config.js and vercel.json).
+ */
+export const baseUrl = () => '/__ai'
 
 /**
  * @param {() => Promise<string | null | undefined>} getAccessToken

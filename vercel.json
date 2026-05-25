@@ -1,3 +1,9 @@
 {
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [
+    {
+      "source": "/__ai/:path*",
+      "destination": "https://platformeintellegente-production.up.railway.app/:path*"
+    },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }
