@@ -49,7 +49,8 @@ Not `VITE_*` here — those go on **Vercel** for the frontend.
 2. On Railway, confirm `SUPABASE_JWT_SECRET` is the **JWT Secret** from Supabase (Settings → API), not another key.
 3. Set `SUPABASE_URL` on Railway (same as frontend) so the API can verify ES256 tokens via JWKS.
 4. Redeploy the backend after changing variables.
-| `GOOGLE_API_KEY` | Google AI Studio |
+| `GROQ_API_KEY` | [Groq Console](https://console.groq.com) — AI chat answers |
+| `GOOGLE_API_KEY` | Google AI Studio — **embeddings only** (PDF index + RAG search; Groq has no embedding API) |
 | `ALLOWED_ORIGINS` | `https://your-vercel-app.vercel.app,http://localhost:5173,http://localhost:5174` |
 
 After redeploy, any `http://localhost:*` Vite port is also allowed via CORS regex. If chat still fails, add your exact dev URL to `ALLOWED_ORIGINS` on Railway.

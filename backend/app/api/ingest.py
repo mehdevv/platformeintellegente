@@ -18,7 +18,11 @@ router = APIRouter(prefix="/v1", tags=["ingest"])
 @router.get("/ingest/health")
 def ingest_health():
     s = get_settings()
-    return {"ingest": "ready", "google": s.google_configured, "supabase": s.supabase_configured}
+    return {
+        "ingest": "ready",
+        "embeddings": s.embeddings_configured,
+        "supabase": s.supabase_configured,
+    }
 
 
 @router.get("/auth/check")
@@ -36,8 +40,11 @@ def report_ingest_status(report_id: str, _staff=Depends(require_staff)):
 async def trigger_report_ingest(report_id: str, _staff=Depends(require_staff)):
     """Extract PDF text, chunk, embed into report_chunks (staff only)."""
     s = get_settings()
-    if not s.google_configured:
-        raise HTTPException(status_code=503, detail="GOOGLE_API_KEY is not configured.")
+    if not s.embeddings_configured:
+        raise HTTPException(
+            status_code=503,
+            detail="GOOGLE_API_KEY is required for PDF embeddings (Gemini). Chat uses GROQ_API_KEY.",
+        )
     if not s.supabase_configured:
         raise HTTPException(status_code=503, detail="Supabase is not configured on the AI API.")
     try:

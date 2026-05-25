@@ -11,7 +11,7 @@ _TASK_QUERY = "retrieval_query"
 def _configure() -> None:
     settings = get_settings()
     if not settings.google_configured:
-        raise RuntimeError("GOOGLE_API_KEY is not configured.")
+        raise RuntimeError("GOOGLE_API_KEY is not configured (required for PDF/RAG embeddings).")
     genai.configure(api_key=settings.google_api_key)
 
 

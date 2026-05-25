@@ -24,12 +24,15 @@ class Settings(BaseSettings):
         "supabase_service_role_key",
         "supabase_jwt_secret",
         "google_api_key",
+        "groq_api_key",
         mode="before",
     )(_strip_env_secret)
 
-    google_api_key: str = ""
+    groq_api_key: str = ""
+    groq_chat_model: str = "llama-3.3-70b-versatile"
 
-    gemini_chat_model: str = "gemini-2.0-flash"
+    # Embeddings (PDF index + RAG query) — still Gemini until re-indexed with another provider
+    google_api_key: str = ""
     gemini_embedding_model: str = "models/gemini-embedding-001"
     embedding_dimensions: int = 1536
 
@@ -46,8 +49,16 @@ class Settings(BaseSettings):
         return bool(self.supabase_url and self.supabase_service_role_key)
 
     @property
+    def groq_configured(self) -> bool:
+        return bool(self.groq_api_key)
+
+    @property
     def google_configured(self) -> bool:
         return bool(self.google_api_key)
+
+    @property
+    def embeddings_configured(self) -> bool:
+        return self.google_configured
 
 
 @lru_cache

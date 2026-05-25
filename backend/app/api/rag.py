@@ -52,8 +52,13 @@ def _chat_error_detail(exc: Exception) -> str:
 @router.post("/chat", response_model=ChatResponse)
 async def chat(body: ChatRequest, user: AuthUser = Depends(require_user)):
     settings = get_settings()
-    if not settings.google_configured:
-        raise HTTPException(status_code=503, detail="GOOGLE_API_KEY is not configured on the AI API.")
+    if not settings.groq_configured:
+        raise HTTPException(status_code=503, detail="GROQ_API_KEY is not configured on the AI API.")
+    if not settings.embeddings_configured:
+        raise HTTPException(
+            status_code=503,
+            detail="GOOGLE_API_KEY is required for RAG embeddings (query vectors). Add it on Railway or keep it for indexing.",
+        )
 
     history = [{"role": m.role, "content": m.content} for m in body.history if m.content.strip()][-12:]
     message = body.message.strip()
@@ -109,6 +114,7 @@ def chat_health():
     s = get_settings()
     return {
         "chat": "ready",
-        "google": s.google_configured,
+        "groq": s.groq_configured,
+        "embeddings": s.embeddings_configured,
         "supabase": s.supabase_configured,
     }

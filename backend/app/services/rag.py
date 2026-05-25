@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from app.core.config import get_settings
 from app.services.embeddings import embed_query
-from app.services.gemini_chat import build_rag_system_instruction, generate_answer, stream_answer
+from app.services.groq_chat import build_rag_system_instruction, generate_answer, stream_answer
 from app.services.supabase_db import get_allowed_report_ids, get_reports_titles, match_chunks
 
 
