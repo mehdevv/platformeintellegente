@@ -43,12 +43,16 @@ export async function sendAiChat({ message, history = [], stream = true, getAcce
  */
 function parseSseLine(line, { onToken, onDone }) {
     if (!line.startsWith('data: ')) return
+    let payload
     try {
-        const payload = JSON.parse(line.slice(6))
-        if (payload.type === 'token' && payload.text) onToken(payload.text)
-        if (payload.type === 'done') onDone(payload)
+        payload = JSON.parse(line.slice(6))
     } catch {
-        /* ignore partial JSON */
+        return
+    }
+    if (payload.type === 'token' && payload.text) onToken(payload.text)
+    if (payload.type === 'done') onDone(payload)
+    if (payload.type === 'error' && payload.detail) {
+        throw new Error(payload.detail)
     }
 }
 

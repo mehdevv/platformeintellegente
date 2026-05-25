@@ -119,16 +119,28 @@ def count_report_chunks(report_id: str) -> int:
 
 
 def match_chunks(query_embedding: list[float], report_ids: list[str], match_count: int) -> list[dict[str, Any]]:
+    if not report_ids:
+        return []
     sb = get_supabase()
-    res = sb.rpc(
-        "match_report_chunks",
-        {
-            "query_embedding": query_embedding,
-            "match_count": match_count,
-            "filter_report_ids": report_ids,
-        },
-    ).execute()
-    return list(res.data or [])
+    try:
+        res = sb.rpc(
+            "match_report_chunks",
+            {
+                "query_embedding": query_embedding,
+                "match_count": match_count,
+                "filter_report_ids": report_ids,
+            },
+        ).execute()
+        return list(res.data or [])
+    except Exception as exc:
+        msg = str(exc).lower()
+        if "permission" in msg or "42501" in msg or "not authorized" in msg:
+            raise RuntimeError(
+                "Vector search is not allowed for the AI service role. "
+                "Run Supabase migration 20260531130000_fix_match_report_chunks_service_role.sql "
+                "then redeploy."
+            ) from exc
+        raise
 
 
 def get_reports_titles(report_ids: list[str]) -> dict[str, str]:
