@@ -2,7 +2,8 @@ fastapi>=0.115.0,<1
 uvicorn[standard]>=0.32.0,<1
 pydantic-settings>=2.6.0,<3
 google-generativeai>=0.8.0,<1
-PyJWT>=2.9.0,<3
+PyJWT[crypto]>=2.9.0,<3
+cryptography>=43.0.0,<45
 supabase>=2.10.0,<3
 httpx>=0.27.0,<1
 # pypdf only on Railway (no system libs); install pymupdf locally for faster PDF extract

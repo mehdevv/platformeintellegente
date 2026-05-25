@@ -57,12 +57,11 @@ export default function AIChatBar({
                 maxRows={8}
                 minRows={2}
                 placeholder="How can I help you today?"
-                variant="standard"
+                variant="outlined"
                 value={inputValue}
                 onChange={onInputChange}
                 slotProps={{
-                    input: {
-                        disableUnderline: true,
+                    htmlInput: {
                         sx: {
                             color: 'text.primary',
                             fontSize: { xs: '1rem', md: '1.1rem' },
@@ -70,7 +69,11 @@ export default function AIChatBar({
                         },
                     },
                 }}
-                sx={{ px: 1, mb: { xs: 1, md: 1.5 } }}
+                sx={{
+                    px: 1,
+                    mb: { xs: 1, md: 1.5 },
+                    '& .MuiOutlinedInput-root': { '& fieldset': { border: 'none' } },
+                }}
                 onKeyDown={handleKeyDown}
             />
             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ px: 0.5 }}>

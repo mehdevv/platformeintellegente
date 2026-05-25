@@ -21,6 +21,7 @@ import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import AIChatBar, { AI_CHAT_BAR_FLOAT_HEIGHT } from '../components/ai/AIChatBar'
 import { useAuth } from '../context/AuthContext'
 import { consumeAiChatStream, isAiApiConfigured, sendAiChat } from '../lib/aiApi'
+import { getFreshAccessToken } from '../lib/supabaseSession'
 
 const sidebarWidth = 260
 
@@ -113,7 +114,7 @@ function MessageBubble({ msg }) {
 
 export default function AIAgentPage() {
     const navigate = useNavigate()
-    const { supabase, user, session } = useAuth()
+    const { supabase, user } = useAuth()
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
     const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true)
     const [messages, setMessages] = useState([])
@@ -124,7 +125,7 @@ export default function AIAgentPage() {
     const hasChat = messages.length > 0
     const apiReady = isAiApiConfigured()
 
-    const getAccessToken = useCallback(async () => session?.access_token ?? null, [session?.access_token])
+    const getAccessToken = useCallback(async () => getFreshAccessToken(supabase), [supabase])
 
     const resetChat = () => {
         setMessages([])

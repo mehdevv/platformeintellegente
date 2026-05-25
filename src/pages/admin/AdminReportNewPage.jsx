@@ -15,10 +15,11 @@ import CloseIcon from '@mui/icons-material/Close'
 import { useAuth } from '../../context/AuthContext'
 import { slugify } from '../../lib/slugify'
 import { logAdminAction } from '../../lib/adminAudit'
-import { REPORT_PDFS_BUCKET, fullPdfStoragePath } from '../../lib/reportPdfStorage'
 import { majorAmountToCents } from '../../lib/moneyFormat'
 import { ensurePdfUnderMaxBytes, MAX_ADMIN_PDF_BYTES } from '../../lib/pdfCompress'
 import { uploadImageFileToImgbb } from '../../lib/imgbbUpload'
+import { indexReportForAi, uploadReportFullPdf } from '../../lib/adminReportPdf'
+import { getFreshAccessToken } from '../../lib/supabaseSession'
 
 const MAX_NEW_GALLERY = 16
 
@@ -38,6 +39,9 @@ export default function AdminReportNewPage() {
     const [pdfInfo, setPdfInfo] = useState('')
     const [err, setErr] = useState('')
     const [saving, setSaving] = useState(false)
+    const [indexingAi, setIndexingAi] = useState(false)
+
+    const getAccessToken = async () => getFreshAccessToken(supabase)
     const [galleryFiles, setGalleryFiles] = useState([])
     /** Index into `galleryFiles` (0-based) for catalogue thumbnail after publish; null = none */
     const [thumbnailPickIndex, setThumbnailPickIndex] = useState(null)
@@ -121,15 +125,12 @@ export default function AdminReportNewPage() {
         }
 
         const reportId = data.id
-        const storagePath = fullPdfStoragePath(reportId)
+        let aiIndexNotice = null
 
         if (pdfFile) {
-            const { error: uploadErr } = await supabase.storage.from(REPORT_PDFS_BUCKET).upload(storagePath, pdfFile, {
-                cacheControl: '3600',
-                upsert: true,
-                contentType: 'application/pdf',
-            })
-            if (uploadErr) {
+            try {
+                await uploadReportFullPdf(supabase, reportId, pdfFile)
+            } catch (uploadEx) {
                 setSaving(false)
                 await logAdminAction(supabase, { action: 'create', entityType: 'report', entityId: reportId, diff: { title, upload: 'failed' } })
                 navigate('/admin/reports', {
@@ -137,44 +138,23 @@ export default function AdminReportNewPage() {
                     state: {
                         notice: {
                             severity: 'warning',
-                            text: `Report was published, but PDF upload failed: ${uploadErr.message}. Edit the report from the list to retry (see docs/supabase-report-pdfs-setup.md).`,
+                            text: `Report was published, but PDF upload failed: ${uploadEx.message}. Edit the report to retry.`,
                         },
                     },
                 })
                 return
             }
 
-            const bytes = pdfFile.size
-            const { error: assetErr } = await supabase.from('report_assets').insert([
-                {
-                    report_id: reportId,
-                    asset_type: 'full_pdf',
-                    storage_path: storagePath,
-                    content_type: 'application/pdf',
-                    bytes,
-                },
-                {
-                    report_id: reportId,
-                    asset_type: 'preview_pdf',
-                    storage_path: storagePath,
-                    content_type: 'application/pdf',
-                    bytes,
-                },
-            ])
-            if (assetErr) {
-                await supabase.storage.from(REPORT_PDFS_BUCKET).remove([storagePath])
-                setSaving(false)
-                await logAdminAction(supabase, { action: 'create', entityType: 'report', entityId: reportId, diff: { title, assets: 'failed' } })
-                navigate('/admin/reports', {
-                    replace: true,
-                    state: {
-                        notice: {
-                            severity: 'warning',
-                            text: `Report was published, but saving PDF metadata failed: ${assetErr.message}. You can edit the report from the list to retry.`,
-                        },
-                    },
-                })
-                return
+            setIndexingAi(true)
+            const idx = await indexReportForAi(reportId, getAccessToken)
+            setIndexingAi(false)
+            if (idx.ok) {
+                aiIndexNotice = { severity: 'success', text: idx.detail }
+            } else if (!idx.skipped) {
+                aiIndexNotice = {
+                    severity: 'warning',
+                    text: `PDF saved, but AI indexing failed: ${idx.error}. Use “Index for AI” on the edit page to retry.`,
+                }
             }
         }
 
@@ -210,18 +190,17 @@ export default function AdminReportNewPage() {
         }
 
         setSaving(false)
-        await logAdminAction(supabase, { action: 'create', entityType: 'report', entityId: reportId, diff: { title, pdf: !!pdfFile } })
+        await logAdminAction(supabase, {
+            action: 'create',
+            entityType: 'report',
+            entityId: reportId,
+            diff: { title, pdf: !!pdfFile, ai_indexed: !!aiIndexNotice?.severity && aiIndexNotice.severity === 'success' },
+        })
+        const notices = [aiIndexNotice, galleryWarnings.length ? { severity: 'warning', text: `Report published. Some gallery images could not be saved: ${galleryWarnings.slice(0, 2).join('; ')}${galleryWarnings.length > 2 ? '…' : ''}` } : null].filter(Boolean)
         navigate('/admin/reports', {
             replace: true,
-            ...(galleryWarnings.length
-                ? {
-                      state: {
-                          notice: {
-                              severity: 'warning',
-                              text: `Report published. Some gallery images could not be saved: ${galleryWarnings.slice(0, 2).join('; ')}${galleryWarnings.length > 2 ? '…' : ''}`,
-                          },
-                      },
-                  }
+            ...(notices.length
+                ? { state: { notice: notices[notices.length - 1], notices } }
                 : {}),
         })
     }
@@ -232,12 +211,9 @@ export default function AdminReportNewPage() {
                 New report
             </Typography>
             <Typography variant="body2" color="text.secondary">
-                Publishes immediately to the live catalogue. Optionally attach the PDF now (bucket <strong>{REPORT_PDFS_BUCKET}</strong>, path{' '}
-                <Typography component="span" variant="body2" sx={{ fontFamily: 'monospace' }}>
-                    {'{report_id}/full.pdf'}
-                </Typography>
-                ). Max size after processing is <strong>{MAX_ADMIN_PDF_BYTES / (1024 * 1024)} MB</strong>; larger files are compressed automatically when possible.
-                RAG embeddings are handled later on the backend.
+                Publishes immediately to the live catalogue. If you attach a PDF, text is extracted and indexed for the AI assistant automatically (requires{' '}
+                <code>VITE_AI_API_URL</code> and Railway backend). Max PDF size after processing:{' '}
+                <strong>{MAX_ADMIN_PDF_BYTES / (1024 * 1024)} MB</strong>.
             </Typography>
             {pdfInfo && <Alert severity="success">{pdfInfo}</Alert>}
             {err && <Alert severity="error">{err}</Alert>}
@@ -327,8 +303,14 @@ export default function AdminReportNewPage() {
                         </Stack>
                     </Box>
                     <Stack direction="row" spacing={1}>
-                        <Button variant="contained" color="secondary" disableElevation disabled={saving || pdfCompressing || !title.trim()} onClick={save}>
-                            Publish report
+                        <Button
+                            variant="contained"
+                            color="secondary"
+                            disableElevation
+                            disabled={saving || indexingAi || pdfCompressing || !title.trim()}
+                            onClick={save}
+                        >
+                            {indexingAi ? 'Indexing for AI…' : saving ? 'Publishing…' : 'Publish report'}
                         </Button>
                         <Button component={Link} to="/admin/reports" variant="outlined">
                             Cancel

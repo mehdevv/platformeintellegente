@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -7,13 +7,23 @@ import { fileURLToPath } from 'node:url'
 const appDir = path.dirname(fileURLToPath(import.meta.url))
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+    const env = loadEnv(mode, appDir, '')
+    const aiApiTarget = (env.VITE_AI_API_URL || 'http://localhost:8000').replace(/\/$/, '')
+
+    return {
     root: appDir,
     envDir: appDir,
     plugins: [react()],
     server: {
-        // imgBB API has no CORS for some browsers; proxy only in dev.
+        // Dev proxies avoid browser CORS (imgBB + Railway/local FastAPI).
         proxy: {
+            '/__ai': {
+                target: aiApiTarget,
+                changeOrigin: true,
+                secure: true,
+                rewrite: p => p.replace(/^\/__ai/, ''),
+            },
             '/__imgbb': {
                 target: 'https://api.imgbb.com',
                 changeOrigin: true,
@@ -30,4 +40,5 @@ export default defineConfig({
     optimizeDeps: {
         include: ['pdf-lib', 'pdfjs-dist'],
     },
+    }
 })

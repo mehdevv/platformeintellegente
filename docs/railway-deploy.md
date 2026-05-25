@@ -32,13 +32,27 @@ If you see HTML, Vite, or 502 → root directory or start command is still wrong
 
 Not `VITE_*` here — those go on **Vercel** for the frontend.
 
+**Paste file (local, gitignored):** `backend/railway-variables.paste.env` — open it, copy all lines, Railway → **Variables** → **Raw Editor** → paste → deploy.
+
+**Template (safe to commit):** `backend/railway-variables.example.env`
+
 | Variable | Notes |
 |----------|--------|
 | `SUPABASE_URL` | Project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | service_role (secret) |
-| `SUPABASE_JWT_SECRET` | JWT secret (API settings) |
+| `SUPABASE_JWT_SECRET` | **JWT Secret** only (API → JWT Settings). Not anon/service_role keys. |
+| `SUPABASE_URL` | Required for JWKS if your project uses new asymmetric JWT signing |
+
+### 401 "Invalid or expired session" on ingest/chat
+
+1. Sign **out** and **in** again on the site (refresh token).
+2. On Railway, confirm `SUPABASE_JWT_SECRET` is the **JWT Secret** from Supabase (Settings → API), not another key.
+3. Set `SUPABASE_URL` on Railway (same as frontend) so the API can verify ES256 tokens via JWKS.
+4. Redeploy the backend after changing variables.
 | `GOOGLE_API_KEY` | Google AI Studio |
-| `ALLOWED_ORIGINS` | `https://your-vercel-app.vercel.app,http://localhost:5173` |
+| `ALLOWED_ORIGINS` | `https://your-vercel-app.vercel.app,http://localhost:5173,http://localhost:5174` |
+
+After redeploy, any `http://localhost:*` Vite port is also allowed via CORS regex. If chat still fails, add your exact dev URL to `ALLOWED_ORIGINS` on Railway.
 
 ## `VITE_AI_API_URL` (frontend only)
 

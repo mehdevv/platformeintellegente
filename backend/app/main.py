@@ -11,6 +11,8 @@ _settings = get_settings()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_settings.cors_origins,
+    # Vite may use 5173, 5174, etc. — regex covers local dev without redeploying per port
+    allow_origin_regex=r"https?://localhost(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

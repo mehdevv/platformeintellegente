@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.core.auth import require_staff
+from app.core.auth import require_staff  # noqa: F401 — used by auth_check
 from app.core.config import get_settings
 from app.services.pdf_pipeline import ingest_report_pdf, ingest_status
 
@@ -19,6 +19,12 @@ router = APIRouter(prefix="/v1", tags=["ingest"])
 def ingest_health():
     s = get_settings()
     return {"ingest": "ready", "google": s.google_configured, "supabase": s.supabase_configured}
+
+
+@router.get("/auth/check")
+def auth_check(user=Depends(require_staff)):
+    """Verify Bearer JWT (ES256/JWKS or HS256). Staff only."""
+    return {"ok": True, "user_id": user.id, "app_role": user.app_role}
 
 
 @router.get("/reports/{report_id}/ingest/status")

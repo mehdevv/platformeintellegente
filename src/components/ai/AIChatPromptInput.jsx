@@ -42,13 +42,13 @@ export function AIChatPromptInput({
                 }}
                 placeholder={placeholder}
                 disabled={disabled}
-                variant="standard"
+                variant="outlined"
                 slotProps={{
-                    input: {
-                        disableUnderline: true,
+                    htmlInput: {
                         sx: { px: 2, py: 1.5, fontSize: '0.9375rem', lineHeight: 1.5 },
                     },
                 }}
+                sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { border: 'none' } } }}
             />
             <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 1, pb: 1, pt: 0 }}>
                 <Stack direction="row" alignItems="center">

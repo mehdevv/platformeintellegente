@@ -1,4 +1,12 @@
-const baseUrl = () => (import.meta.env.VITE_AI_API_URL || 'http://localhost:8000').replace(/\/$/, '')
+/** In dev, Vite proxies /__ai → VITE_AI_API_URL (no CORS). Production uses the public Railway URL. */
+const baseUrl = () => {
+    if (import.meta.env.DEV) {
+        return '/__ai'
+    }
+    const url = import.meta.env.VITE_AI_API_URL
+    if (!url) throw new Error('VITE_AI_API_URL is not set for production builds.')
+    return url.replace(/\/$/, '')
+}
 
 /**
  * @param {() => Promise<string | null | undefined>} getAccessToken
@@ -64,7 +72,7 @@ export async function consumeAiChatStream(response, { onToken, onDone }) {
  */
 export async function triggerReportIngest(reportId, getAccessToken) {
     const token = await getAccessToken()
-    if (!token) throw new Error('Sign in required.')
+    if (!token) throw new Error('Sign in required. Sign out and sign in again.')
 
     const res = await fetch(`${baseUrl()}/v1/reports/${reportId}/ingest`, {
         method: 'POST',
@@ -89,5 +97,5 @@ export async function fetchIngestStatus(reportId, getAccessToken) {
 }
 
 export function isAiApiConfigured() {
-    return Boolean(import.meta.env.VITE_AI_API_URL || import.meta.env.DEV)
+    return Boolean(import.meta.env.DEV || import.meta.env.VITE_AI_API_URL)
 }

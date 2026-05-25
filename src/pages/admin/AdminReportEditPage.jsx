@@ -16,9 +16,11 @@ import ImageIcon from '@mui/icons-material/Image'
 import StarIcon from '@mui/icons-material/Star'
 import StarBorderIcon from '@mui/icons-material/StarBorder'
 import { useAuth } from '../../context/AuthContext'
-import { triggerReportIngest } from '../../lib/aiApi'
+import { indexReportForAi, uploadReportPdfAndIndex } from '../../lib/adminReportPdf'
+import { getFreshAccessToken } from '../../lib/supabaseSession'
 import { logAdminAction } from '../../lib/adminAudit'
 import { majorAmountToCents } from '../../lib/moneyFormat'
+import { ensurePdfUnderMaxBytes, MAX_ADMIN_PDF_BYTES } from '../../lib/pdfCompress'
 import { uploadImageFileToImgbb } from '../../lib/imgbbUpload'
 
 const MAX_GALLERY_IMAGES = 16
@@ -26,7 +28,7 @@ const MAX_GALLERY_IMAGES = 16
 export default function AdminReportEditPage() {
     const { reportId } = useParams()
     const navigate = useNavigate()
-    const { supabase, session } = useAuth()
+    const { supabase } = useAuth()
     const [loading, setLoading] = useState(true)
     const [title, setTitle] = useState('')
     const [slug, setSlug] = useState('')
@@ -44,9 +46,48 @@ export default function AdminReportEditPage() {
     const [chunkCount, setChunkCount] = useState(0)
     const [indexBusy, setIndexBusy] = useState(false)
     const [indexMsg, setIndexMsg] = useState('')
+    const [pdfUploadBusy, setPdfUploadBusy] = useState(false)
+    const pdfInputRef = useRef(null)
     const galleryInputRef = useRef(null)
 
-    const getAccessToken = async () => session?.access_token ?? null
+    const getAccessToken = async () => getFreshAccessToken(supabase)
+
+    const onPickPdf = e => {
+        const f = e.target.files?.[0]
+        const input = e.target
+        if (!f || !supabase || !reportId) {
+            input.value = ''
+            return
+        }
+        if (f.type !== 'application/pdf') {
+            setErr('Please choose a PDF file.')
+            input.value = ''
+            return
+        }
+        setErr('')
+        setIndexMsg('')
+        setPdfUploadBusy(true)
+        void (async () => {
+            try {
+                const { file, message } = await ensurePdfUnderMaxBytes(f, MAX_ADMIN_PDF_BYTES)
+                const idx = await uploadReportPdfAndIndex(supabase, reportId, file, getAccessToken)
+                setHasPdf(true)
+                if (idx.ok) {
+                    setChunkCount(idx.chunks_written ?? 0)
+                    setIndexMsg(message ? `${message} ${idx.detail}` : idx.detail)
+                } else if (!idx.skipped) {
+                    setErr(`PDF uploaded, but AI indexing failed: ${idx.error}`)
+                } else {
+                    setIndexMsg('PDF uploaded. Configure VITE_AI_API_URL to enable automatic AI indexing.')
+                }
+            } catch (ex) {
+                setErr(ex?.message || 'PDF upload failed')
+            } finally {
+                setPdfUploadBusy(false)
+                input.value = ''
+            }
+        })()
+    }
 
     useEffect(() => {
         let cancelled = false
@@ -153,9 +194,13 @@ export default function AdminReportEditPage() {
         setIndexMsg('')
         setErr('')
         try {
-            const result = await triggerReportIngest(reportId, getAccessToken)
-            setIndexMsg(result.detail || `Indexed ${result.chunks_written} chunks.`)
-            setChunkCount(result.chunks_written ?? 0)
+            const idx = await indexReportForAi(reportId, getAccessToken)
+            if (idx.ok) {
+                setIndexMsg(idx.detail)
+                setChunkCount(idx.chunks_written ?? 0)
+            } else {
+                setErr(idx.error || 'AI indexing failed')
+            }
         } catch (ex) {
             setErr(ex?.message || 'AI indexing failed')
         } finally {
@@ -233,20 +278,30 @@ export default function AdminReportEditPage() {
 
                     <Box sx={{ pt: 1, pb: 1, borderTop: '1px solid', borderColor: 'divider' }}>
                         <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
-                            AI search index
+                            Report PDF & AI index
                         </Typography>
                         <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
-                            Extracts text from the report PDF and stores embeddings in Supabase for the AI assistant. Requires a{' '}
-                            <strong>full_pdf</strong> upload (create flow) and a running FastAPI backend.
+                            Uploading or replacing a PDF runs text extraction and vector indexing automatically (<code>VITE_AI_API_URL</code>).
                         </Typography>
                         <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mb: 1 }}>
                             <Chip size="small" label={hasPdf ? 'PDF attached' : 'No PDF'} color={hasPdf ? 'success' : 'warning'} variant="outlined" />
                             <Chip size="small" label={`${chunkCount} chunks indexed`} variant="outlined" />
                         </Stack>
+                        <input ref={pdfInputRef} type="file" accept="application/pdf,.pdf" hidden onChange={onPickPdf} />
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 1 }}>
+                            <Button
+                                variant="outlined"
+                                size="small"
+                                disabled={pdfUploadBusy || indexBusy}
+                                onClick={() => pdfInputRef.current?.click()}
+                            >
+                                {pdfUploadBusy ? 'Uploading & indexing…' : hasPdf ? 'Replace PDF' : 'Upload PDF'}
+                            </Button>
+                            <Button variant="text" size="small" disabled={!hasPdf || indexBusy || pdfUploadBusy} onClick={runAiIndex}>
+                                {indexBusy ? 'Re-indexing…' : 'Re-index only'}
+                            </Button>
+                        </Stack>
                         {indexMsg && <Alert severity="success" sx={{ mb: 1 }}>{indexMsg}</Alert>}
-                        <Button variant="outlined" color="secondary" size="small" disabled={!hasPdf || indexBusy} onClick={runAiIndex}>
-                            {indexBusy ? 'Indexing…' : 'Index for AI'}
-                        </Button>
                     </Box>
 
                     <Box sx={{ pt: 1 }}>

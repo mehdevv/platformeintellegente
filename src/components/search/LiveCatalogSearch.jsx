@@ -128,7 +128,6 @@ export default function LiveCatalogSearch({ variant = 'header', placeholder, onN
             variant={isHero ? 'standard' : 'outlined'}
             slotProps={{
                 input: {
-                    disableUnderline: isHero,
                     startAdornment: (
                         <InputAdornment position="start">
                             <SearchIcon sx={{ color: isHero ? '#64748b' : 'text.secondary', ml: isHero ? 1 : 0 }} />
@@ -138,7 +137,14 @@ export default function LiveCatalogSearch({ variant = 'header', placeholder, onN
             }}
             sx={
                 isHero
-                    ? { px: 1.5, py: 0.5, '& input': { fontSize: '0.9375rem', py: '12px' } }
+                    ? {
+                          px: 1.5,
+                          py: 0.5,
+                          '& input': { fontSize: '0.9375rem', py: '12px' },
+                          '& .MuiInput-underline:before': { borderBottom: 'none' },
+                          '& .MuiInput-underline:after': { borderBottom: 'none' },
+                          '& .MuiInput-underline:hover:not(.Mui-disabled):before': { borderBottom: 'none' },
+                      }
                     : undefined
             }
         />
