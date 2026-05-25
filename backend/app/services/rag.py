@@ -85,7 +85,18 @@ def run_rag_chat(
     system = build_rag_system_instruction(context_block, titles)
 
     if stream:
-        return stream_answer(system, message, history), sources, len(allowed)
+        def _streaming():
+            yielded = False
+            for piece in stream_answer(system, message, history):
+                yielded = True
+                yield piece
+            if not yielded:
+                # Some Gemini streams return no chunks; fall back to one-shot generation.
+                fallback = generate_answer(system, message, history)
+                if fallback:
+                    yield fallback
+
+        return _streaming(), sources, len(allowed)
 
     answer = generate_answer(system, message, history)
     return RagResult(answer=answer, sources=sources, allowed_report_count=len(allowed))

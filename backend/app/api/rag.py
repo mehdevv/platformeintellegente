@@ -49,7 +49,15 @@ async def chat(body: ChatRequest, user: AuthUser = Depends(require_user)):
             meta = json.dumps({"type": "done", "sources": sources, "allowed_report_count": count})
             yield f"data: {meta}\n\n"
 
-        return StreamingResponse(sse(), media_type="text/event-stream")
+        return StreamingResponse(
+            sse(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
 
     result = run_rag_chat(user.id, body.message.strip(), history=history, stream=False)
     return ChatResponse(

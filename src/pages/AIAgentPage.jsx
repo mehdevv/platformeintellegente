@@ -20,7 +20,7 @@ import CloseIcon from '@mui/icons-material/Close'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import AIChatBar, { AI_CHAT_BAR_FLOAT_HEIGHT } from '../components/ai/AIChatBar'
 import { useAuth } from '../context/AuthContext'
-import { consumeAiChatStream, isAiApiConfigured, sendAiChat } from '../lib/aiApi'
+import { consumeAiChatStream, isAiApiConfigured, sendAiChat, sendAiChatJson } from '../lib/aiApi'
 import { getFreshAccessToken } from '../lib/supabaseSession'
 
 const sidebarWidth = 260
@@ -164,23 +164,48 @@ export default function AIAgentPage() {
         setSending(true)
 
         try {
-            const response = await sendAiChat({ message: text, history, stream: true, getAccessToken })
             let sources = []
-            await consumeAiChatStream(response, {
-                onToken: t => {
-                    setMessages(prev =>
-                        prev.map(m => (m.id === assistantId ? { ...m, content: m.content + t } : m)),
-                    )
-                },
-                onDone: meta => {
-                    sources = meta.sources || []
-                },
-            })
-            setMessages(prev =>
-                prev.map(m =>
-                    m.id === assistantId ? { ...m, streaming: false, sources } : m,
-                ),
-            )
+            let accumulated = ''
+
+            const applyToken = t => {
+                accumulated += t
+                setMessages(prev =>
+                    prev.map(m => (m.id === assistantId ? { ...m, content: m.content + t } : m)),
+                )
+            }
+
+            const response = await sendAiChat({ message: text, history, stream: true, getAccessToken })
+            const contentType = response.headers.get('content-type') || ''
+
+            if (contentType.includes('application/json')) {
+                const data = await response.json()
+                accumulated = data.answer || ''
+                sources = data.sources || []
+                setMessages(prev =>
+                    prev.map(m =>
+                        m.id === assistantId ? { ...m, content: accumulated, streaming: false, sources } : m,
+                    ),
+                )
+            } else {
+                await consumeAiChatStream(response, {
+                    onToken: applyToken,
+                    onDone: meta => {
+                        sources = meta.sources || []
+                    },
+                })
+                if (!accumulated.trim()) {
+                    const data = await sendAiChatJson({ message: text, history, getAccessToken })
+                    accumulated = data.answer || ''
+                    sources = data.sources || []
+                }
+                setMessages(prev =>
+                    prev.map(m =>
+                        m.id === assistantId
+                            ? { ...m, content: accumulated, streaming: false, sources }
+                            : m,
+                    ),
+                )
+            }
         } catch (e) {
             setMessages(prev => prev.filter(m => m.id !== assistantId))
             setError(e?.message || 'AI request failed')

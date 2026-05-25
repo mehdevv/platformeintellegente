@@ -32,42 +32,70 @@ Reports in context: {titles}
 """
 
 
-def generate_answer(system_instruction: str, user_message: str, history: list[dict[str, str]] | None = None) -> str:
-    _configure()
+def _build_contents(user_message: str, history: list[dict[str, str]] | None) -> list[dict]:
+    contents: list[dict] = []
+    for turn in history or []:
+        role = turn.get("role")
+        text = (turn.get("content") or "").strip()
+        if not text:
+            continue
+        if role == "user":
+            contents.append({"role": "user", "parts": [text]})
+        elif role in ("assistant", "model"):
+            contents.append({"role": "model", "parts": [text]})
+    contents.append({"role": "user", "parts": [user_message]})
+    return contents
+
+
+def _chunk_text(chunk) -> str:
+    """Extract text from a streamed or complete GenerateContentResponse chunk."""
+    try:
+        if chunk.text:
+            return chunk.text
+    except (ValueError, AttributeError):
+        pass
+    try:
+        cand = chunk.candidates[0]
+        parts = cand.content.parts if cand.content else []
+        return "".join(getattr(p, "text", "") or "" for p in parts)
+    except (IndexError, AttributeError, TypeError):
+        return ""
+
+
+def _response_text(response) -> str:
+    text = _chunk_text(response)
+    if text.strip():
+        return text.strip()
+    try:
+        if response.prompt_feedback and response.prompt_feedback.block_reason:
+            return f"Response blocked ({response.prompt_feedback.block_reason}). Try rephrasing your question."
+    except AttributeError:
+        pass
+    return "The model returned an empty response. Please try again."
+
+
+def _create_model(system_instruction: str):
     settings = get_settings()
-    model = genai.GenerativeModel(
+    return genai.GenerativeModel(
         settings.gemini_chat_model,
         system_instruction=system_instruction,
     )
-    contents = []
-    for turn in history or []:
-        role = turn.get("role")
-        text = turn.get("content", "")
-        if role == "user":
-            contents.append({"role": "user", "parts": [text]})
-        elif role == "assistant":
-            contents.append({"role": "model", "parts": [text]})
-    contents.append({"role": "user", "parts": [user_message]})
+
+
+def generate_answer(system_instruction: str, user_message: str, history: list[dict[str, str]] | None = None) -> str:
+    _configure()
+    model = _create_model(system_instruction)
+    contents = _build_contents(user_message, history)
     response = model.generate_content(contents)
-    return (response.text or "").strip()
+    return _response_text(response)
 
 
 def stream_answer(system_instruction: str, user_message: str, history: list[dict[str, str]] | None = None) -> Iterator[str]:
     _configure()
-    settings = get_settings()
-    model = genai.GenerativeModel(
-        settings.gemini_chat_model,
-        system_instruction=system_instruction,
-    )
-    contents = []
-    for turn in history or []:
-        role = turn.get("role")
-        text = turn.get("content", "")
-        if role == "user":
-            contents.append({"role": "user", "parts": [text]})
-        elif role == "assistant":
-            contents.append({"role": "model", "parts": [text]})
-    contents.append({"role": "user", "parts": [user_message]})
-    for chunk in model.generate_content(contents, stream=True):
-        if chunk.text:
-            yield chunk.text
+    model = _create_model(system_instruction)
+    contents = _build_contents(user_message, history)
+    response = model.generate_content(contents, stream=True)
+    for chunk in response:
+        piece = _chunk_text(chunk)
+        if piece:
+            yield piece

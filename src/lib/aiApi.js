@@ -41,6 +41,17 @@ export async function sendAiChat({ message, history = [], stream = true, getAcce
  * @param {Response} response
  * @param {{ onToken: (t: string) => void, onDone: (meta: object) => void }} handlers
  */
+function parseSseLine(line, { onToken, onDone }) {
+    if (!line.startsWith('data: ')) return
+    try {
+        const payload = JSON.parse(line.slice(6))
+        if (payload.type === 'token' && payload.text) onToken(payload.text)
+        if (payload.type === 'done') onDone(payload)
+    } catch {
+        /* ignore partial JSON */
+    }
+}
+
 export async function consumeAiChatStream(response, { onToken, onDone }) {
     const reader = response.body?.getReader()
     if (!reader) throw new Error('No response body')
@@ -55,16 +66,31 @@ export async function consumeAiChatStream(response, { onToken, onDone }) {
         const lines = buffer.split('\n')
         buffer = lines.pop() || ''
         for (const line of lines) {
-            if (!line.startsWith('data: ')) continue
-            try {
-                const payload = JSON.parse(line.slice(6))
-                if (payload.type === 'token' && payload.text) onToken(payload.text)
-                if (payload.type === 'done') onDone(payload)
-            } catch {
-                /* ignore partial JSON */
-            }
+            parseSseLine(line.trim(), { onToken, onDone })
         }
     }
+    if (buffer.trim()) {
+        parseSseLine(buffer.trim(), { onToken, onDone })
+    }
+}
+
+/** Non-streaming chat (reliable fallback when SSE yields no tokens). */
+export async function sendAiChatJson({ message, history = [], getAccessToken }) {
+    const token = await getAccessToken()
+    if (!token) throw new Error('Sign in to use the AI assistant.')
+
+    const res = await fetch(`${baseUrl()}/v1/chat`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ message, history, stream: false }),
+    })
+
+    const body = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(body.detail || res.statusText || 'AI request failed')
+    return body
 }
 
 /**
