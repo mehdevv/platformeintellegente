@@ -25,6 +25,7 @@ import AdminReportEditPage from './pages/admin/AdminReportEditPage'
 import AdminUsersPage from './pages/admin/AdminUsersPage'
 import AdminAuditPage from './pages/admin/AdminAuditPage'
 import AdminSettingsPage from './pages/admin/AdminSettingsPage'
+import AdminAiSettingsPage from './pages/admin/AdminAiSettingsPage'
 import AdminStoragePage from './pages/admin/AdminStoragePage'
 import AdminSectorsPage from './pages/admin/AdminSectorsPage'
 import AdminBlogPage from './pages/admin/AdminBlogPage'
@@ -42,12 +43,14 @@ import I18nHtmlLang from './components/I18nHtmlLang'
 import RedirectSecteur from './components/RedirectSecteur'
 import RequireAuth from './components/auth/RequireAuth'
 import RequireAdmin from './components/auth/RequireAdmin'
+import SiteMotionShell from './components/motion/SiteMotionShell'
 
 function App() {
     return (
         <>
             <I18nHtmlLang />
             <Routes>
+                <Route element={<SiteMotionShell />}>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/pricing" element={<PricingPage />} />
                 <Route path="/login" element={<LoginPage />} />
@@ -115,6 +118,7 @@ function App() {
                     <Route path="corporate" element={<AdminCorporateInboxPage />} />
                     <Route path="storage" element={<AdminStoragePage />} />
                     <Route path="settings" element={<AdminSettingsPage />} />
+                    <Route path="ai" element={<AdminAiSettingsPage />} />
                 </Route>
                 <Route path="/ai" element={<AIAgentPage />} />
                 <Route path="/blog" element={<BlogListingPage />} />
@@ -139,6 +143,7 @@ function App() {
                 <Route path="/secteurs" element={<Navigate to="/sectors" replace />} />
                 <Route path="/secteurs/:id" element={<RedirectSecteur />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
+                </Route>
             </Routes>
         </>
     )

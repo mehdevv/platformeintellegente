@@ -60,7 +60,7 @@ export default function BlogPostPage() {
         <Box sx={{ bgcolor: 'background.default', minHeight: '100vh' }}>
             <Header />
             <Box component="main" sx={{ pt: '72px', pb: 8 }}>
-                <Container maxWidth="md" className="section-fade-in" sx={{ py: 4, maxWidth: 'min(720px, 100%) !important' }}>
+                <Container maxWidth="md"  sx={{ py: 4, maxWidth: 'min(720px, 100%) !important' }}>
                     <Button component={Link} to="/blog" size="small" sx={{ mb: 3, fontWeight: 700 }}>
                         {t('common.back')}
                     </Button>

@@ -54,7 +54,7 @@ export default function SearchPage() {
         <Box sx={{ bgcolor: 'background.default', minHeight: '100vh' }}>
             <Header />
             <Box component="main" sx={{ pt: '72px', pb: 8 }}>
-                <Container maxWidth="md" className="section-fade-in">
+                <Container maxWidth="md" >
                     <Typography variant="h4" sx={{ fontFamily: '"League Spartan", sans-serif', fontWeight: 800, mb: 2 }}>
                         {t('search.title')}
                     </Typography>

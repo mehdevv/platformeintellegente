@@ -143,6 +143,53 @@ def match_chunks(query_embedding: list[float], report_ids: list[str], match_coun
         raise
 
 
+def get_user_plan_tier(user_id: str) -> str | None:
+    sb = get_supabase()
+    row = (
+        sb.table("subscriptions")
+        .select("plan_tier")
+        .eq("user_id", user_id)
+        .eq("status", "active")
+        .maybe_single()
+        .execute()
+    )
+    data = row.data
+    if isinstance(data, dict) and data.get("plan_tier"):
+        return str(data["plan_tier"])
+    return None
+
+
+def count_user_ai_messages_this_month(user_id: str) -> int:
+    from datetime import datetime, timezone
+
+    start = datetime.now(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    sb = get_supabase()
+    res = (
+        sb.table("usage_events")
+        .select("id", count="exact")
+        .eq("user_id", user_id)
+        .eq("event_type", "ai_message")
+        .gte("created_at", start.isoformat())
+        .execute()
+    )
+    return res.count or 0
+
+
+def count_all_ai_messages_this_month() -> int:
+    from datetime import datetime, timezone
+
+    start = datetime.now(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    sb = get_supabase()
+    res = (
+        sb.table("usage_events")
+        .select("id", count="exact")
+        .eq("event_type", "ai_message")
+        .gte("created_at", start.isoformat())
+        .execute()
+    )
+    return res.count or 0
+
+
 def get_reports_titles(report_ids: list[str]) -> dict[str, str]:
     if not report_ids:
         return {}

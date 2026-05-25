@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import Typography from '@mui/material/Typography'
 import Stack from '@mui/material/Stack'
 import Card from '@mui/material/Card'
@@ -80,6 +81,9 @@ export default function AdminSettingsPage() {
                 <Typography variant="body2" color="text.secondary">
                     Manual bank-transfer details shown to clients on the checkout page. They are public (read-only for visitors) and editable only by admins.
                 </Typography>
+                <Button component={Link} to="/admin/ai" variant="outlined" color="secondary" size="small" sx={{ mt: 1.5 }}>
+                    AI assistant settings →
+                </Button>
             </Box>
 
             {err && <Alert severity="error">{err}</Alert>}

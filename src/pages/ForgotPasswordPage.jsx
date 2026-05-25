@@ -9,6 +9,7 @@ import Stack from '@mui/material/Stack'
 import Alert from '@mui/material/Alert'
 import { useTranslation } from 'react-i18next'
 import BrandLogo from '../components/BrandLogo'
+import { MotionFadeInScale } from '../components/motion/Motion'
 import { useAuth } from '../context/AuthContext'
 
 export default function ForgotPasswordPage() {
@@ -43,7 +44,8 @@ export default function ForgotPasswordPage() {
 
     return (
         <Box sx={{ bgcolor: 'background.default', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
-            <Paper className="section-fade-in card-lift" elevation={4} sx={{ width: '100%', maxWidth: 420, p: 4 }}>
+            <MotionFadeInScale>
+            <Paper className="card-lift" elevation={4} sx={{ width: '100%', maxWidth: 420, p: 4 }}>
                 <Stack spacing={3} alignItems="center" sx={{ mb: 2 }}>
                     <BrandLogo />
                 </Stack>
@@ -60,6 +62,7 @@ export default function ForgotPasswordPage() {
                     <Button component={Link} to={returnToLogin} fullWidth sx={{ fontWeight: 600 }}>{t('forgotPassword.backToLogin')}</Button>
                 </Stack>
             </Paper>
+            </MotionFadeInScale>
         </Box>
     )
 }

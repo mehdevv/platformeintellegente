@@ -65,7 +65,7 @@ export default function BlogListingPage() {
         <Box sx={{ bgcolor: 'background.default', minHeight: '100vh' }}>
             <Header />
             <Box component="main" sx={{ pt: '72px', pb: 8 }}>
-                <Box className="page-hero-slant section-fade-in" sx={{ py: { xs: 6, md: 9 }, position: 'relative', overflow: 'hidden' }}>
+                <Box className="page-hero-slant" sx={{ py: { xs: 6, md: 9 }, position: 'relative', overflow: 'hidden' }}>
                     <Box className="diagonal-stripes" sx={{ opacity: 0.5 }} aria-hidden />
                     <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
                         <Typography variant="h3" sx={{ fontFamily: '"League Spartan", sans-serif', fontWeight: 800, mb: 1 }}>

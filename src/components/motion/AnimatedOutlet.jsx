@@ -1,16 +1,16 @@
 import React from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useLocation, useOutlet } from 'react-router-dom'
-import { pageEnter } from './motionPresets'
+import { nestedPageEnter } from './motionPresets'
 
-/** Route-level enter/exit — wrap routes with a layout using this outlet. */
+/** Nested layout transitions (dashboard / admin tabs). */
 export default function AnimatedOutlet() {
     const location = useLocation()
     const outlet = useOutlet()
 
     return (
         <AnimatePresence mode="wait" initial={false}>
-            <motion.div key={location.pathname} style={{ minHeight: '100%' }} {...pageEnter}>
+            <motion.div key={location.pathname} style={{ minHeight: '100%', width: '100%' }} {...nestedPageEnter}>
                 {outlet}
             </motion.div>
         </AnimatePresence>

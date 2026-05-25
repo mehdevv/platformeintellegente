@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.admin_ai import router as admin_ai_router
 from app.api.ingest import router as ingest_router
 from app.api.rag import router as rag_router
 from app.core.config import get_settings
@@ -20,6 +21,7 @@ app.add_middleware(
 
 app.include_router(ingest_router)
 app.include_router(rag_router)
+app.include_router(admin_ai_router)
 
 
 @app.get("/health")

@@ -1,5 +1,5 @@
 /** In dev, Vite proxies /__ai → VITE_AI_API_URL (no CORS). Production uses the public Railway URL. */
-const baseUrl = () => {
+export const baseUrl = () => {
     if (import.meta.env.DEV) {
         return '/__ai'
     }

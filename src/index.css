@@ -220,3 +220,26 @@
   line-height: 1.55;
   letter-spacing: 0.04em;
 }
+
+/* Respect system reduced-motion; Framer MotionConfig also uses reducedMotion="user". */
+@media (prefers-reduced-motion: reduce) {
+  .section-fade-in,
+  .animate-hero-line,
+  .legal-prose {
+    animation: none !important;
+  }
+
+  .card-lift,
+  .card-lift:hover {
+    transition: none;
+    transform: none !important;
+  }
+
+  .nav-link-animated::after {
+    transition: none;
+  }
+
+  .btn-shimmer::after {
+    animation: none !important;
+  }
+}

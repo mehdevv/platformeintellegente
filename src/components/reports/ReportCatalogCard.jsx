@@ -13,6 +13,7 @@ import LockOutlinedIcon from '@mui/icons-material/LockOutlined'
 import { useTranslation } from 'react-i18next'
 import { formatPriceFromCents } from '../../lib/moneyFormat'
 import { reportPublicPath } from '../../lib/reportPath'
+import MotionCard from '../motion/MotionCard'
 
 /**
  * @param {{ report: object, owned?: boolean }} props
@@ -26,8 +27,8 @@ export default function ReportCatalogCard({ report, owned = false }) {
         : ''
 
     return (
+        <MotionCard>
         <Card
-            className="card-lift"
             sx={{
                 height: '100%',
                 display: 'flex',
@@ -38,11 +39,9 @@ export default function ReportCatalogCard({ report, owned = false }) {
                 borderColor: owned ? 'secondary.main' : 'divider',
                 boxShadow: owned ? '0 4px 20px rgba(25, 127, 148, 0.12)' : '0 1px 3px rgba(26, 35, 50, 0.06)',
                 bgcolor: owned ? 'rgba(25, 127, 148, 0.03)' : 'background.paper',
-                transition: 'border-color 0.2s, box-shadow 0.2s, transform 0.2s',
+                transition: 'border-color 0.2s, box-shadow 0.2s',
                 '&:hover': {
                     borderColor: 'secondary.main',
-                    boxShadow: '0 12px 32px rgba(25, 127, 148, 0.14)',
-                    transform: 'translateY(-2px)',
                     '& .report-catalog-title': { color: 'secondary.dark' },
                 },
             }}
@@ -231,5 +230,6 @@ export default function ReportCatalogCard({ report, owned = false }) {
                 </Stack>
             </Box>
         </Card>
+        </MotionCard>
     )
 }

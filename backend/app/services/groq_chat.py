@@ -6,6 +6,7 @@ from collections.abc import Iterator
 import httpx
 
 from app.core.config import get_settings
+from app.services.ai_runtime_settings import get_ai_runtime_settings
 
 GROQ_OPENAI_BASE = "https://api.groq.com/openai/v1"
 _CHAT_TIMEOUT = 120.0
@@ -22,24 +23,6 @@ def _headers() -> dict[str, str]:
         "Authorization": f"Bearer {settings.groq_api_key}",
         "Content-Type": "application/json",
     }
-
-
-def build_rag_system_instruction(context_block: str, report_titles: dict[str, str]) -> str:
-    titles = ", ".join(report_titles.values()) if report_titles else "the user's entitled reports"
-    return f"""You are Researcha AI, a market-research assistant for a paid report platform.
-
-Rules:
-- Answer ONLY using the provided report excerpts below. If the excerpts do not contain enough information, say so clearly.
-- Do not invent statistics, dates, or sources.
-- When you rely on a passage, mention which report it came from when possible.
-- Be concise and structured (bullets or short sections when helpful).
-
-Reports in context: {titles}
-
---- Report excerpts ---
-{context_block}
---- End excerpts ---
-"""
 
 
 def _build_messages(
@@ -118,11 +101,11 @@ def stream_answer(
     history: list[dict[str, str]] | None = None,
 ) -> Iterator[str]:
     _require_groq()
-    settings = get_settings()
+    runtime = get_ai_runtime_settings()
     payload = {
-        "model": settings.groq_chat_model,
+        "model": runtime.get("groq_chat_model_resolved") or get_settings().groq_chat_model,
         "messages": _build_messages(system_instruction, user_message, history),
-        "temperature": 0.3,
+        "temperature": runtime.get("temperature", 0.3),
         "stream": True,
     }
     with httpx.Client(timeout=_CHAT_TIMEOUT) as client:

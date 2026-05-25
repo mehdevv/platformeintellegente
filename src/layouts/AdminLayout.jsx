@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { NavLink, Outlet, Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import Drawer from '@mui/material/Drawer'
 import Typography from '@mui/material/Typography'
@@ -13,6 +13,8 @@ import CloseIcon from '@mui/icons-material/Close'
 import BrandLogo from '../components/BrandLogo'
 import NotificationBell from '../components/notifications/NotificationBell'
 import AdminStorageUsage from '../components/admin/AdminStorageUsage'
+import AnimatedOutlet from '../components/motion/AnimatedOutlet'
+import MotionNavLink from '../components/motion/MotionNavLink'
 
 const drawerWidth = 268
 
@@ -25,6 +27,7 @@ const nav = [
     { to: '/admin/corporate', label: 'Corporate inbox' },
     { to: '/admin/storage', label: 'Storage' },
     { to: '/admin/users', label: 'Users' },
+    { to: '/admin/ai', label: 'AI assistant' },
     { to: '/admin/audit', label: 'Audit log' },
     { to: '/admin/settings', label: 'Settings' },
 ]
@@ -33,32 +36,7 @@ function NavBlock({ onNavigate }) {
     return (
         <Stack spacing={0.5} sx={{ px: 1.5, py: 2 }}>
             {nav.map(item => (
-                <NavLink
-                    key={item.to}
-                    to={item.to}
-                    end={item.end}
-                    onClick={onNavigate}
-                    style={{ textDecoration: 'none', color: 'inherit' }}
-                >
-                    {({ isActive }) => (
-                        <Box
-                            sx={{
-                                px: 2,
-                                py: 1.25,
-                                borderRadius: 1,
-                                borderLeft: '3px solid',
-                                borderLeftColor: isActive ? 'secondary.main' : 'transparent',
-                                bgcolor: isActive ? 'rgba(25, 127, 148, 0.08)' : 'transparent',
-                                color: isActive ? 'secondary.dark' : 'text.secondary',
-                                fontWeight: isActive ? 700 : 500,
-                                fontSize: '0.875rem',
-                                '&:hover': { bgcolor: 'rgba(75, 91, 114, 0.06)', color: 'text.primary' },
-                            }}
-                        >
-                            {item.label}
-                        </Box>
-                    )}
-                </NavLink>
+                <MotionNavLink key={item.to} to={item.to} end={item.end} onClick={onNavigate} label={item.label} />
             ))}
         </Stack>
     )
@@ -172,8 +150,8 @@ export default function AdminLayout() {
                         <Chip label="Admin" size="small" color="secondary" variant="outlined" sx={{ fontWeight: 700 }} />
                     </Stack>
                 </Box>
-                <Box sx={{ flex: 1, p: { xs: 2, sm: 3, md: 4 } }}>
-                    <Outlet />
+                <Box sx={{ flex: 1, p: { xs: 2, sm: 3, md: 4 }, overflow: 'hidden' }}>
+                    <AnimatedOutlet />
                 </Box>
             </Box>
         </Box>

@@ -144,3 +144,7 @@ export function MotionRevealRight({ children, className, style, delay = 0 }) {
         </motion.div>
     )
 }
+
+export { default as MotionPage } from './MotionPage'
+export { default as MotionCard } from './MotionCard'
+export { default as MotionNavLink } from './MotionNavLink'

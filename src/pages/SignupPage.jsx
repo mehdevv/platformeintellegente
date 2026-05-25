@@ -17,6 +17,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility'
 import Grid from '@mui/material/Grid'
 import { useTranslation } from 'react-i18next'
 import BrandLogo from '../components/BrandLogo'
+import { MotionFadeInScale } from '../components/motion/Motion'
 import { useAuth } from '../context/AuthContext'
 
 export default function SignupPage() {
@@ -75,7 +76,8 @@ export default function SignupPage() {
                 </Button>
             </Box>
             <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', p: 3 }}>
-                <Paper className="section-fade-in card-lift" elevation={4} sx={{ width: '100%', maxWidth: 440, overflow: 'hidden', borderRadius: 3 }}>
+                <MotionFadeInScale>
+                <Paper className="card-lift" elevation={4} sx={{ width: '100%', maxWidth: 440, overflow: 'hidden', borderRadius: 3 }}>
                     <Box sx={{ height: 128, bgcolor: 'primary.main', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
                         <Box sx={{ position: 'absolute', inset: 0, opacity: 0.2, background: 'radial-gradient(circle, rgba(255,255,255,0.4), transparent)' }} />
                         <Box sx={{ position: 'relative', zIndex: 1 }}>
@@ -150,6 +152,7 @@ export default function SignupPage() {
                         </Box>
                     </Box>
                 </Paper>
+                </MotionFadeInScale>
             </Box>
             <Box sx={{ p: 3, textAlign: 'center' }}>
                 <Typography variant="caption" color="text.secondary">{t('footer.copyright')}</Typography>

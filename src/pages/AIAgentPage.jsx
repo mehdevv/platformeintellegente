@@ -1,137 +1,139 @@
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { AnimatePresence, motion, LayoutGroup } from 'framer-motion'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import Button from '@mui/material/Button'
 import IconButton from '@mui/material/IconButton'
-import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import Drawer from '@mui/material/Drawer'
 import Alert from '@mui/material/Alert'
 import CircularProgress from '@mui/material/CircularProgress'
-import Chip from '@mui/material/Chip'
-import ArrowBackIcon from '@mui/icons-material/ArrowBack'
-import AddIcon from '@mui/icons-material/Add'
-import ChatBubbleIcon from '@mui/icons-material/ChatBubble'
-import SmartToyIcon from '@mui/icons-material/SmartToy'
 import MenuIcon from '@mui/icons-material/Menu'
-import CloseIcon from '@mui/icons-material/Close'
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import AIChatBar, { AI_CHAT_BAR_FLOAT_HEIGHT } from '../components/ai/AIChatBar'
+import AISidebar from '../components/ai/AISidebar'
+import AIMessageBubble from '../components/ai/AIMessageBubble'
+import AIWelcome from '../components/ai/AIWelcome'
+import AITypingIndicator from '../components/ai/AITypingIndicator'
+import { aiAlertSlide, aiHeaderEnter, aiLoadingFade, aiPanelSwitch } from '../components/ai/aiMotionPresets'
 import { useAuth } from '../context/AuthContext'
 import { consumeAiChatStream, isAiApiConfigured, sendAiChat, sendAiChatJson } from '../lib/aiApi'
+import {
+    createAiConversation,
+    deleteAiConversation,
+    fetchLibrarySourcesCount,
+    listAiConversations,
+    loadAiMessages,
+    mapDbMessageToUi,
+    saveAiMessage,
+    titleFromMessage,
+    touchAiConversation,
+    updateAiConversationTitle,
+} from '../lib/aiChats'
+import { fetchAiUsageState, recordAiMessageUsage } from '../lib/aiUsage'
 import { getFreshAccessToken } from '../lib/supabaseSession'
 
-const sidebarWidth = 260
-
-function LeftSidebarContent({ navigate, onClose, isCollapsed }) {
-    return (
-        <Stack sx={{ height: '100%', overflow: 'hidden' }}>
-            <Box sx={{ p: 2, borderBottom: '1px solid #e2e8f0' }}>
-                <Stack direction="row" justifyContent={isCollapsed ? 'center' : 'space-between'} alignItems="center" sx={{ mb: 2 }}>
-                    {isCollapsed ? (
-                        <IconButton onClick={() => navigate(-1)} size="small" sx={{ color: 'text.secondary' }}>
-                            <ArrowBackIcon />
-                        </IconButton>
-                    ) : (
-                        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} size="small" sx={{ color: 'text.secondary' }}>
-                            Back
-                        </Button>
-                    )}
-                    {onClose && !isCollapsed && (
-                        <IconButton onClick={onClose} size="small">
-                            <CloseIcon />
-                        </IconButton>
-                    )}
-                </Stack>
-                <Button
-                    fullWidth={!isCollapsed}
-                    variant="contained"
-                    sx={{
-                        minWidth: isCollapsed ? 0 : 'auto',
-                        p: isCollapsed ? 1 : undefined,
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                    }}
-                    onClick={onClose}
-                >
-                    <AddIcon sx={{ mr: isCollapsed ? 0 : 1 }} />
-                    {!isCollapsed && <span>New chat</span>}
-                </Button>
-            </Box>
-            <Box sx={{ flexGrow: 1, p: 2 }}>
-                {!isCollapsed && (
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.6 }}>
-                        Answers use only reports in your library. Subscribe or purchase reports, then ensure they are indexed by an admin.
-                    </Typography>
-                )}
-            </Box>
-        </Stack>
-    )
-}
-
-function MessageBubble({ msg }) {
-    const isUser = msg.role === 'user'
-    return (
-        <Box sx={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start' }}>
-            <Stack alignItems={isUser ? 'flex-end' : 'flex-start'} gap={0.5} sx={{ maxWidth: '85%' }}>
-                {!isUser && (
-                    <Box sx={{ width: 32, height: 32, borderRadius: 2, bgcolor: 'primary.main', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <SmartToyIcon sx={{ color: '#fff', fontSize: 18 }} />
-                    </Box>
-                )}
-                <Paper
-                    sx={{
-                        px: { xs: 2, md: 3 },
-                        py: 2,
-                        borderRadius: isUser ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                        bgcolor: isUser ? 'primary.main' : 'background.paper',
-                        color: isUser ? '#fff' : 'text.primary',
-                        border: isUser ? 'none' : '1px solid',
-                        borderColor: 'divider',
-                    }}
-                >
-                    <Typography variant="body2" sx={{ lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>
-                        {msg.content}
-                        {msg.streaming && (
-                            <Box component="span" sx={{ display: 'inline-block', width: 8, height: 14, ml: 0.5, bgcolor: 'secondary.main', animation: 'pulse 1s infinite' }} />
-                        )}
-                    </Typography>
-                </Paper>
-                {msg.sources?.length > 0 && (
-                    <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
-                        {msg.sources.map((s, i) => (
-                            <Chip key={i} size="small" label={s.report_title || 'Report'} variant="outlined" component={s.report_id ? Link : 'div'} to={s.report_id ? `/reports/${s.report_id}` : undefined} />
-                        ))}
-                    </Stack>
-                )}
-            </Stack>
-        </Box>
-    )
-}
+const sidebarWidth = 280
+const sidebarCollapsedWidth = 72
 
 export default function AIAgentPage() {
     const navigate = useNavigate()
-    const { supabase, user } = useAuth()
+    const { supabase, user, profile, subscription } = useAuth()
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
     const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true)
+    const [conversations, setConversations] = useState([])
+    const [loadingChats, setLoadingChats] = useState(true)
+    const [activeConversationId, setActiveConversationId] = useState(null)
     const [messages, setMessages] = useState([])
+    const [loadingMessages, setLoadingMessages] = useState(false)
     const [inputValue, setInputValue] = useState('')
     const [sending, setSending] = useState(false)
     const [error, setError] = useState('')
+    const [aiUsed, setAiUsed] = useState(0)
+    const [aiLimit, setAiLimit] = useState(15)
+    const [aiUnlimited, setAiUnlimited] = useState(false)
+    const [chatEnabled, setChatEnabled] = useState(true)
+    const [sourcesCount, setSourcesCount] = useState(0)
 
     const hasChat = messages.length > 0
     const apiReady = isAiApiConfigured()
-
     const getAccessToken = useCallback(async () => getFreshAccessToken(supabase), [supabase])
 
-    const resetChat = () => {
+    const handleRevealComplete = useCallback(messageId => {
+        setMessages(prev =>
+            prev.map(m => (m.id === messageId ? { ...m, animating: false, streaming: false } : m)),
+        )
+    }, [])
+
+    const refreshSidebarMeta = useCallback(async () => {
+        if (!supabase || !user) return
+        const [usage, sources] = await Promise.all([
+            fetchAiUsageState(supabase, user.id, subscription?.plan_tier),
+            fetchLibrarySourcesCount(supabase, user.id),
+        ])
+        setAiUsed(usage.used)
+        setAiLimit(usage.limit ?? 15)
+        setAiUnlimited(usage.unlimited)
+        setChatEnabled(usage.chat_enabled)
+        setSourcesCount(sources)
+    }, [supabase, user, subscription?.plan_tier])
+
+    const refreshConversations = useCallback(async () => {
+        if (!supabase || !user) {
+            setConversations([])
+            setLoadingChats(false)
+            return
+        }
+        setLoadingChats(true)
+        const { data, error: listErr } = await listAiConversations(supabase, user.id)
+        if (listErr) console.error('listAiConversations', listErr)
+        setConversations(data || [])
+        setLoadingChats(false)
+    }, [supabase, user])
+
+    useEffect(() => {
+        refreshConversations()
+        refreshSidebarMeta()
+    }, [refreshConversations, refreshSidebarMeta])
+
+    const startNewChat = useCallback(() => {
+        setActiveConversationId(null)
         setMessages([])
         setError('')
         setInputValue('')
-    }
+    }, [])
+
+    const loadConversation = useCallback(
+        async conversationId => {
+            if (!supabase || !conversationId) return
+            setActiveConversationId(conversationId)
+            setLoadingMessages(true)
+            setError('')
+            const { data, error: loadErr } = await loadAiMessages(supabase, conversationId)
+            if (loadErr) {
+                setError(loadErr.message || 'Could not load chat')
+                setMessages([])
+            } else {
+                setMessages((data || []).map(mapDbMessageToUi))
+            }
+            setLoadingMessages(false)
+        },
+        [supabase],
+    )
+
+    const handleDeleteConversation = useCallback(
+        async conversationId => {
+            if (!supabase || !conversationId) return
+            const { error: delErr } = await deleteAiConversation(supabase, conversationId)
+            if (delErr) {
+                setError(delErr.message || 'Could not delete chat')
+                return
+            }
+            if (activeConversationId === conversationId) startNewChat()
+            await refreshConversations()
+        },
+        [supabase, activeConversationId, startNewChat, refreshConversations],
+    )
 
     const toggleSidebar = () => {
         if (window.innerWidth >= 1200) {
@@ -152,6 +154,14 @@ export default function AIAgentPage() {
             setError('AI API is not configured. Set VITE_AI_API_URL in .env (e.g. http://localhost:8000).')
             return
         }
+        if (!chatEnabled) {
+            setError('AI chat is temporarily disabled. Please try again later.')
+            return
+        }
+        if (!aiUnlimited && aiLimit != null && aiUsed >= aiLimit) {
+            setError('Monthly AI message limit reached. Upgrade your plan in Billing.')
+            return
+        }
 
         setError('')
         setInputValue('')
@@ -160,11 +170,40 @@ export default function AIAgentPage() {
             .map(m => ({ role: m.role, content: m.content }))
         const userMsg = { id: `u-${Date.now()}`, role: 'user', content: text }
         const assistantId = `a-${Date.now()}`
-        setMessages(prev => [...prev, userMsg, { id: assistantId, role: 'assistant', content: '', streaming: true, sources: [] }])
+        setMessages(prev => [
+            ...prev,
+            userMsg,
+            { id: assistantId, role: 'assistant', content: '', streaming: true, animating: true, sources: [], data_mode: 'reports' },
+        ])
         setSending(true)
 
+        let conversationId = activeConversationId
+        const isFirstMessageInChat = !conversationId
+
         try {
+            if (isFirstMessageInChat) {
+                const { data: conv, error: createErr } = await createAiConversation(
+                    supabase,
+                    user.id,
+                    titleFromMessage(text),
+                )
+                if (createErr || !conv) throw new Error(createErr?.message || 'Could not create chat')
+                conversationId = conv.id
+                setActiveConversationId(conv.id)
+            }
+
+            await saveAiMessage(supabase, {
+                conversationId,
+                role: 'user',
+                content: text,
+            })
+
+            if (isFirstMessageInChat) {
+                await updateAiConversationTitle(supabase, conversationId, titleFromMessage(text))
+            }
+
             let sources = []
+            let dataMode = 'reports'
             let accumulated = ''
 
             const applyToken = t => {
@@ -181,9 +220,12 @@ export default function AIAgentPage() {
                 const data = await response.json()
                 accumulated = data.answer || ''
                 sources = data.sources || []
+                dataMode = data.data_mode || dataMode
                 setMessages(prev =>
                     prev.map(m =>
-                        m.id === assistantId ? { ...m, content: accumulated, streaming: false, sources } : m,
+                        m.id === assistantId
+                            ? { ...m, content: accumulated, streaming: false, animating: true, sources, data_mode: dataMode }
+                            : m,
                     ),
                 )
             } else {
@@ -191,27 +233,92 @@ export default function AIAgentPage() {
                     onToken: applyToken,
                     onDone: meta => {
                         sources = meta.sources || []
+                        dataMode = meta.data_mode || dataMode
                     },
                 })
                 if (!accumulated.trim()) {
                     const data = await sendAiChatJson({ message: text, history, getAccessToken })
                     accumulated = data.answer || ''
                     sources = data.sources || []
+                    dataMode = data.data_mode || dataMode
+                    setMessages(prev =>
+                        prev.map(m =>
+                            m.id === assistantId
+                                ? { ...m, content: accumulated, streaming: false, animating: true, sources, data_mode: dataMode }
+                                : m,
+                        ),
+                    )
+                } else {
+                    setMessages(prev =>
+                        prev.map(m =>
+                            m.id === assistantId
+                                ? {
+                                      ...m,
+                                      content: accumulated,
+                                      streaming: false,
+                                      animating: true,
+                                      sources,
+                                      data_mode: dataMode,
+                                  }
+                                : m,
+                        ),
+                    )
                 }
+            }
+
+            const { data: savedAssistant } = await saveAiMessage(supabase, {
+                conversationId,
+                role: 'assistant',
+                content: accumulated,
+                citations: sources,
+            })
+            if (savedAssistant) {
                 setMessages(prev =>
                     prev.map(m =>
                         m.id === assistantId
-                            ? { ...m, content: accumulated, streaming: false, sources }
+                            ? { ...m, dbId: savedAssistant.id, sources: m.sources?.length ? m.sources : sources }
                             : m,
                     ),
                 )
             }
+
+            await touchAiConversation(supabase, conversationId)
+            await recordAiMessageUsage(supabase, user.id, {
+                conversation_id: conversationId,
+                sources_count: sources.length,
+            })
+            await Promise.all([refreshConversations(), refreshSidebarMeta()])
         } catch (e) {
-            setMessages(prev => prev.filter(m => m.id !== assistantId))
+            setMessages(prev => prev.filter(m => m.id !== assistantId && m.id !== userMsg.id))
+            if (isFirstMessageInChat && conversationId) {
+                await deleteAiConversation(supabase, conversationId)
+                setActiveConversationId(null)
+            }
             setError(e?.message || 'AI request failed')
         } finally {
             setSending(false)
         }
+    }
+
+    const sidebarProps = {
+        navigate,
+        conversations,
+        activeConversationId,
+        loadingChats,
+        onSelectConversation: id => {
+            loadConversation(id)
+            setMobileSidebarOpen(false)
+        },
+        onNewChat: () => {
+            startNewChat()
+            setMobileSidebarOpen(false)
+        },
+        onDeleteConversation: handleDeleteConversation,
+        profile,
+        subscription,
+        aiUsed,
+        aiLimit: aiUnlimited ? null : aiLimit,
+        sourcesCount,
     }
 
     const chatBarProps = {
@@ -220,109 +327,207 @@ export default function AIAgentPage() {
         onSend: handleSend,
         hasChat,
         layoutId: 'ai-chat-bar',
+        disabled: sending || !chatEnabled,
     }
 
+    const drawerWidth = desktopSidebarOpen ? sidebarWidth : sidebarCollapsedWidth
+
     return (
-        <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden', bgcolor: 'background.default' }}>
-            <Drawer
-                variant="permanent"
-                sx={{
-                    width: desktopSidebarOpen ? sidebarWidth : 72,
-                    display: { xs: 'none', lg: 'block' },
-                    flexShrink: 0,
-                    '& .MuiDrawer-paper': {
-                        width: desktopSidebarOpen ? sidebarWidth : 72,
-                        bgcolor: 'background.paper',
-                        borderRight: '1px solid #e2e8f0',
-                        position: 'relative',
-                        overflowX: 'hidden',
-                    },
-                }}
-            >
-                <LeftSidebarContent navigate={navigate} onClose={resetChat} isCollapsed={!desktopSidebarOpen} />
-            </Drawer>
+        <LayoutGroup>
+            <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden', bgcolor: 'background.default' }}>
+                <Drawer
+                    variant="permanent"
+                    sx={{
+                        width: drawerWidth,
+                        display: { xs: 'none', lg: 'block' },
+                        flexShrink: 0,
+                        '& .MuiDrawer-paper': {
+                            width: drawerWidth,
+                            bgcolor: 'background.paper',
+                            borderRight: '1px solid',
+                            borderColor: 'divider',
+                            position: 'relative',
+                            overflowX: 'hidden',
+                            transition: 'width 0.35s cubic-bezier(0.22, 1, 0.36, 1)',
+                        },
+                    }}
+                >
+                    <AISidebar {...sidebarProps} isCollapsed={!desktopSidebarOpen} />
+                </Drawer>
 
-            <Drawer
-                variant="temporary"
-                open={mobileSidebarOpen}
-                onClose={() => setMobileSidebarOpen(false)}
-                ModalProps={{ keepMounted: true }}
-                sx={{ display: { xs: 'block', lg: 'none' }, '& .MuiDrawer-paper': { width: sidebarWidth } }}
-            >
-                <LeftSidebarContent navigate={navigate} onClose={() => { setMobileSidebarOpen(false); resetChat() }} isCollapsed={false} />
-            </Drawer>
+                <Drawer
+                    variant="temporary"
+                    open={mobileSidebarOpen}
+                    onClose={() => setMobileSidebarOpen(false)}
+                    ModalProps={{ keepMounted: true }}
+                    sx={{
+                        display: { xs: 'block', lg: 'none' },
+                        '& .MuiDrawer-paper': {
+                            width: sidebarWidth,
+                            transition: 'transform 0.35s cubic-bezier(0.22, 1, 0.36, 1)',
+                        },
+                    }}
+                >
+                    <AISidebar {...sidebarProps} isCollapsed={false} onCloseDrawer={() => setMobileSidebarOpen(false)} />
+                </Drawer>
 
-            <Box component="main" sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1.5, borderBottom: '1px solid #e2e8f0', bgcolor: 'background.paper' }}>
-                    <IconButton onClick={toggleSidebar} size="small">
-                        <MenuIcon />
-                    </IconButton>
-                    <Typography variant="subtitle2" fontWeight={800}>
-                        Researcha AI
-                    </Typography>
-                    {!user && (
-                        <Button component={Link} to="/login" state={{ redirectTo: '/ai' }} size="small" sx={{ ml: 'auto' }}>
-                            Sign in
-                        </Button>
-                    )}
-                </Box>
-
-                {error && (
-                    <Alert severity="error" sx={{ mx: 2, mt: 1 }} onClose={() => setError('')}>
-                        {error}
-                    </Alert>
-                )}
-                {!apiReady && (
-                    <Alert severity="warning" sx={{ mx: 2, mt: 1 }}>
-                        Set <code>VITE_AI_API_URL</code> in your frontend <code>.env</code> and run the backend (<code>uvicorn</code> in <code>backend/</code>).
-                    </Alert>
-                )}
-
-                <Box sx={{ flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden' }}>
-                    {hasChat ? (
-                        <>
-                            <Box
-                                sx={{
-                                    position: 'absolute',
-                                    inset: 0,
-                                    overflow: 'auto',
-                                    p: { xs: 2, md: 3 },
-                                    pb: AI_CHAT_BAR_FLOAT_HEIGHT,
-                                }}
-                            >
-                                <Stack spacing={3} sx={{ maxWidth: 720, mx: 'auto' }}>
-                                    {messages.map(msg => (
-                                        <motion.div key={msg.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-                                            <MessageBubble msg={msg} />
-                                        </motion.div>
-                                    ))}
-                                    {sending && (
-                                        <Stack direction="row" alignItems="center" gap={1} justifyContent="center">
-                                            <CircularProgress size={20} color="secondary" />
-                                        </Stack>
-                                    )}
-                                </Stack>
-                            </Box>
-                            <AIChatBar {...chatBarProps} position="floating" />
-                        </>
-                    ) : (
-                        <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', px: 2 }}>
-                            <Stack alignItems="center" spacing={3} sx={{ maxWidth: 800, width: '100%' }}>
-                                <Stack direction="row" alignItems="center" gap={2}>
-                                    <AutoAwesomeIcon sx={{ fontSize: 40, color: 'primary.main' }} />
-                                    <Typography variant="h4" sx={{ fontFamily: '"Georgia", serif', fontWeight: 400 }}>
-                                        Ask your reports
-                                    </Typography>
-                                </Stack>
-                                <Typography variant="body2" color="text.secondary" textAlign="center">
-                                    Questions are answered from PDF content in reports you own — not the open web.
-                                </Typography>
-                                <AIChatBar {...chatBarProps} position="inline" />
-                            </Stack>
+                <Box component="main" sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                    <Box
+                        component={motion.header}
+                        {...aiHeaderEnter}
+                        sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1,
+                            px: 2,
+                            py: 1.5,
+                            borderBottom: '1px solid',
+                            borderColor: 'divider',
+                            bgcolor: 'rgba(255,255,255,0.92)',
+                            backdropFilter: 'blur(12px)',
+                        }}
+                    >
+                        <IconButton
+                            component={motion.button}
+                            whileHover={{ scale: 1.06 }}
+                            whileTap={{ scale: 0.94 }}
+                            onClick={toggleSidebar}
+                            size="small"
+                            aria-label="Toggle sidebar"
+                        >
+                            <MenuIcon />
+                        </IconButton>
+                        <Box
+                            component={motion.button}
+                            type="button"
+                            onClick={toggleSidebar}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            aria-label="Toggle chat sidebar"
+                            sx={{
+                                border: 'none',
+                                background: 'none',
+                                p: 0,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                            }}
+                        >
+                            <Box component="img" src="/logo.png" alt="Researcha" sx={{ height: 28, width: 'auto' }} />
                         </Box>
-                    )}
+                        <Typography variant="subtitle2" fontWeight={800} sx={{ ml: 0.5, letterSpacing: '-0.01em' }}>
+                            Researcha AI
+                        </Typography>
+                        {!user && (
+                            <Button
+                                component={motion(Link)}
+                                whileHover={{ scale: 1.03 }}
+                                whileTap={{ scale: 0.97 }}
+                                to="/login"
+                                state={{ redirectTo: '/ai' }}
+                                size="small"
+                                sx={{ ml: 'auto', fontWeight: 700 }}
+                            >
+                                Sign in
+                            </Button>
+                        )}
+                    </Box>
+
+                    <AnimatePresence mode="popLayout">
+                        {error && (
+                            <Alert
+                                component={motion.div}
+                                {...aiAlertSlide}
+                                severity="error"
+                                sx={{ mx: 2, mt: 1 }}
+                                onClose={() => setError('')}
+                            >
+                                {error}
+                            </Alert>
+                        )}
+                        {!apiReady && (
+                            <Alert
+                                component={motion.div}
+                                initial={{ opacity: 0, y: -6 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                severity="warning"
+                                sx={{ mx: 2, mt: 1 }}
+                            >
+                                Set <code>VITE_AI_API_URL</code> in your frontend <code>.env</code> and run the backend (
+                                <code>uvicorn</code> in <code>backend/</code>).
+                            </Alert>
+                        )}
+                    </AnimatePresence>
+
+                    <Box sx={{ flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden' }}>
+                        <AnimatePresence mode="wait">
+                            {loadingMessages ? (
+                                <Stack
+                                    key="loading"
+                                    component={motion.div}
+                                    {...aiLoadingFade}
+                                    alignItems="center"
+                                    justifyContent="center"
+                                    sx={{ height: '100%' }}
+                                >
+                                    <CircularProgress color="secondary" />
+                                </Stack>
+                            ) : hasChat ? (
+                                <Box
+                                    key="chat"
+                                    component={motion.div}
+                                    {...aiPanelSwitch}
+                                    sx={{ position: 'absolute', inset: 0 }}
+                                >
+                                    <Box
+                                        sx={{
+                                            position: 'absolute',
+                                            inset: 0,
+                                            overflow: 'auto',
+                                            p: { xs: 2, md: 3 },
+                                            pb: AI_CHAT_BAR_FLOAT_HEIGHT,
+                                            scrollBehavior: 'smooth',
+                                        }}
+                                    >
+                                        <Stack spacing={3} sx={{ maxWidth: 720, mx: 'auto' }}>
+                                            <AnimatePresence initial={false}>
+                                                {messages.map(msg => (
+                                                    <motion.div
+                                                        key={msg.id}
+                                                        layout
+                                                        initial={false}
+                                                        animate={{ opacity: 1 }}
+                                                        exit={{ opacity: 0, scale: 0.98 }}
+                                                    >
+                                                        <AIMessageBubble
+                                                            msg={msg}
+                                                            onRevealComplete={
+                                                                msg.role === 'assistant' && msg.animating
+                                                                    ? () => handleRevealComplete(msg.id)
+                                                                    : undefined
+                                                            }
+                                                        />
+                                                    </motion.div>
+                                                ))}
+                                            </AnimatePresence>
+                                            <AnimatePresence>
+                                                {sending && messages[messages.length - 1]?.role === 'user' && (
+                                                    <AITypingIndicator key="typing" />
+                                                )}
+                                            </AnimatePresence>
+                                        </Stack>
+                                    </Box>
+                                    <AIChatBar {...chatBarProps} position="floating" />
+                                </Box>
+                            ) : (
+                                <Box key="welcome" component={motion.div} {...aiPanelSwitch} sx={{ position: 'absolute', inset: 0 }}>
+                                    <AIWelcome sourcesCount={sourcesCount} chatBarProps={chatBarProps} />
+                                </Box>
+                            )}
+                        </AnimatePresence>
+                    </Box>
                 </Box>
             </Box>
-        </Box>
+        </LayoutGroup>
     )
 }

@@ -13,6 +13,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import { useTranslation } from 'react-i18next'
 import BrandLogo from '../components/BrandLogo'
+import { MotionFadeInScale } from '../components/motion/Motion'
 import { useAuth } from '../context/AuthContext'
 
 export default function AdminLoginPage() {
@@ -67,7 +68,8 @@ export default function AdminLoginPage() {
                 </Button>
             </Box>
             <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', p: 3 }}>
-                <Paper className="section-fade-in card-lift" elevation={4} sx={{ width: '100%', maxWidth: 440, overflow: 'hidden', borderRadius: 3 }}>
+                <MotionFadeInScale>
+                <Paper className="card-lift" elevation={4} sx={{ width: '100%', maxWidth: 440, overflow: 'hidden', borderRadius: 3 }}>
                     <Box
                         sx={{
                             height: 128,
@@ -169,6 +171,7 @@ export default function AdminLoginPage() {
                         </Stack>
                     </Box>
                 </Paper>
+                </MotionFadeInScale>
             </Box>
         </Box>
     )

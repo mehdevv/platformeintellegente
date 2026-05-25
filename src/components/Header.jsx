@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState } from 'react'
+import { motion, useScroll, useMotionValueEvent } from 'framer-motion'
 import { Link, useNavigate } from 'react-router-dom'
 import AppBar from '@mui/material/AppBar'
 import Toolbar from '@mui/material/Toolbar'
@@ -26,7 +27,14 @@ export default function Header() {
     const navigate = useNavigate()
     const [visible, setVisible] = useState(true)
     const [mobileOpen, setMobileOpen] = useState(false)
-    const lastScrollY = useRef(0)
+    const { scrollY } = useScroll()
+
+    useMotionValueEvent(scrollY, 'change', latest => {
+        const prev = scrollY.getPrevious() ?? 0
+        if (latest < 12) setVisible(true)
+        else if (latest > prev) setVisible(false)
+        else setVisible(true)
+    })
 
     const navLinks = [
         { label: t('nav.sectors'), to: '/sectors' },
@@ -36,29 +44,18 @@ export default function Header() {
         { label: t('nav.ai'), to: '/ai' },
     ]
 
-    useEffect(() => {
-        const handleScroll = () => {
-            const currentScrollY = window.scrollY
-            if (currentScrollY < 10) setVisible(true)
-            else if (currentScrollY > lastScrollY.current) setVisible(false)
-            else setVisible(true)
-            lastScrollY.current = currentScrollY
-        }
-        window.addEventListener('scroll', handleScroll, { passive: true })
-        return () => window.removeEventListener('scroll', handleScroll)
-    }, [])
-
     return (
         <>
             <AppBar
                 position="fixed"
                 elevation={0}
+                component={motion.header}
+                animate={{ y: visible ? 0 : -88 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 28 }}
                 sx={{
                     bgcolor: 'rgba(255,255,255,0.94)',
                     backdropFilter: 'blur(14px)',
                     borderBottom: '1px solid #dde1e9',
-                    transform: visible ? 'translateY(0)' : 'translateY(-100%)',
-                    transition: 'transform 0.3s ease',
                 }}
             >
                 <Toolbar sx={{ maxWidth: 1520, mx: 'auto', width: '100%', px: { xs: 2, md: 3 }, gap: { xs: 1, md: 2 }, flexWrap: { lg: 'nowrap' } }}>

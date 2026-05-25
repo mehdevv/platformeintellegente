@@ -1,10 +1,14 @@
 import React from 'react'
+import { motion } from 'framer-motion'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
+import { fadeInScale } from '../motion/motionPresets'
 
 export default function EmptyState({ title, description, children }) {
     return (
         <Box
+            component={motion.div}
+            {...fadeInScale}
             sx={{
                 py: 5,
                 px: 3,

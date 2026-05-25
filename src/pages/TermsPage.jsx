@@ -12,7 +12,7 @@ export default function TermsPage() {
         <Box sx={{ bgcolor: 'background.default', minHeight: '100vh' }}>
             <Header />
             <Box component="main" sx={{ pt: '72px', pb: 8 }}>
-                <Container maxWidth="md" className="section-fade-in legal-prose">
+                <Container maxWidth="md" className="legal-prose">
                     <Typography variant="h3" sx={{ fontFamily: '"League Spartan", sans-serif', fontWeight: 800, mb: 1 }}>{t('terms.title')}</Typography>
                     <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 4 }}>{t('terms.lastUpdated')}</Typography>
                     <Stack spacing={2}>

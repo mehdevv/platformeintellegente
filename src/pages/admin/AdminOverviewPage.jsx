@@ -383,6 +383,9 @@ export default function AdminOverviewPage() {
                             <Button component={RouterLink} to="/admin/blog" variant="outlined" size="small">
                                 Blog
                             </Button>
+                            <Button component={RouterLink} to="/admin/ai" variant="outlined" size="small">
+                                AI assistant
+                            </Button>
                             <Button component={RouterLink} to="/admin/settings" variant="outlined" size="small">
                                 Bank RIB
                             </Button>

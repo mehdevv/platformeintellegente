@@ -54,7 +54,7 @@ export default function MyReportsPage() {
         <Box sx={{ bgcolor: 'background.default', minHeight: '100vh' }}>
             <Header />
             <Box component="main" sx={{ pt: '72px', pb: 8 }}>
-                <Container maxWidth="lg" className="section-fade-in">
+                <Container maxWidth="lg" >
                     <Typography variant="h4" sx={{ fontFamily: '"League Spartan", sans-serif', fontWeight: 800, mb: 1 }}>
                         {t('myReports.title')}
                     </Typography>

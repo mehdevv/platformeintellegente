@@ -25,11 +25,17 @@ class Settings(BaseSettings):
         "supabase_jwt_secret",
         "google_api_key",
         "groq_api_key",
+        "tavily_api_key",
         mode="before",
     )(_strip_env_secret)
 
     groq_api_key: str = ""
     groq_chat_model: str = "llama-3.3-70b-versatile"
+
+    web_search_enabled: bool = True
+    web_search_max_results: int = 6
+    web_search_max_context_chars: int = 12_000
+    tavily_api_key: str = ""
 
     # Embeddings (PDF index + RAG query) — still Gemini until re-indexed with another provider
     google_api_key: str = ""
@@ -59,6 +65,10 @@ class Settings(BaseSettings):
     @property
     def embeddings_configured(self) -> bool:
         return self.google_configured
+
+    @property
+    def tavily_configured(self) -> bool:
+        return bool(self.tavily_api_key)
 
 
 @lru_cache
