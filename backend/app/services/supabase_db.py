@@ -9,6 +9,14 @@ from supabase import Client, create_client
 from app.core.config import get_settings
 
 
+def _single_row_data(response: Any) -> dict[str, Any] | None:
+    """Safe read for PostgREST maybe_single() — no row must not 500 the API."""
+    if response is None:
+        return None
+    data = getattr(response, "data", None)
+    return data if isinstance(data, dict) else None
+
+
 @lru_cache
 def get_supabase() -> Client:
     settings = get_settings()
@@ -19,11 +27,12 @@ def get_supabase() -> Client:
 
 def get_profile_role(user_id: str) -> str | None:
     sb = get_supabase()
-    row = sb.table("profiles").select("app_role").eq("id", user_id).maybe_single().execute()
-    data = row.data
-    if isinstance(data, dict):
-        return data.get("app_role")
-    return None
+    try:
+        row = sb.table("profiles").select("app_role").eq("id", user_id).maybe_single().execute()
+    except Exception:
+        return None
+    data = _single_row_data(row)
+    return data.get("app_role") if data else None
 
 
 def _is_active_entitlement(row: dict[str, Any]) -> bool:
@@ -75,16 +84,19 @@ def get_allowed_report_ids(user_id: str) -> list[str]:
 
 def get_full_pdf_path(report_id: str) -> str | None:
     sb = get_supabase()
-    row = (
-        sb.table("report_assets")
-        .select("storage_path")
-        .eq("report_id", report_id)
-        .eq("asset_type", "full_pdf")
-        .maybe_single()
-        .execute()
-    )
-    data = row.data
-    if isinstance(data, dict) and data.get("storage_path"):
+    try:
+        row = (
+            sb.table("report_assets")
+            .select("storage_path")
+            .eq("report_id", report_id)
+            .eq("asset_type", "full_pdf")
+            .maybe_single()
+            .execute()
+        )
+    except Exception:
+        return None
+    data = _single_row_data(row)
+    if data and data.get("storage_path"):
         return str(data["storage_path"])
     return None
 
@@ -145,16 +157,19 @@ def match_chunks(query_embedding: list[float], report_ids: list[str], match_coun
 
 def get_user_plan_tier(user_id: str) -> str | None:
     sb = get_supabase()
-    row = (
-        sb.table("subscriptions")
-        .select("plan_tier")
-        .eq("user_id", user_id)
-        .eq("status", "active")
-        .maybe_single()
-        .execute()
-    )
-    data = row.data
-    if isinstance(data, dict) and data.get("plan_tier"):
+    try:
+        row = (
+            sb.table("subscriptions")
+            .select("plan_tier")
+            .eq("user_id", user_id)
+            .eq("status", "active")
+            .maybe_single()
+            .execute()
+        )
+    except Exception:
+        return None
+    data = _single_row_data(row)
+    if data and data.get("plan_tier"):
         return str(data["plan_tier"])
     return None
 

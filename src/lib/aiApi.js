@@ -1,3 +1,12 @@
+function formatApiError(body, fallback) {
+    const detail = body?.detail
+    if (typeof detail === 'string' && detail.trim()) return detail
+    if (Array.isArray(detail)) {
+        return detail.map(d => d?.msg || JSON.stringify(d)).filter(Boolean).join(' · ') || fallback
+    }
+    return fallback || 'AI request failed'
+}
+
 /** In dev, Vite proxies /__ai → VITE_AI_API_URL (no CORS). Production uses the public Railway URL. */
 export const baseUrl = () => {
     if (import.meta.env.DEV) {
@@ -26,7 +35,7 @@ export async function sendAiChat({ message, history = [], stream = true, getAcce
 
     if (!res.ok) {
         const errBody = await res.json().catch(() => ({}))
-        throw new Error(errBody.detail || res.statusText || 'AI request failed')
+        throw new Error(formatApiError(errBody, res.statusText))
     }
 
     if (!stream) {
@@ -93,7 +102,7 @@ export async function sendAiChatJson({ message, history = [], getAccessToken }) 
     })
 
     const body = await res.json().catch(() => ({}))
-    if (!res.ok) throw new Error(body.detail || res.statusText || 'AI request failed')
+    if (!res.ok) throw new Error(formatApiError(body, res.statusText))
     return body
 }
 

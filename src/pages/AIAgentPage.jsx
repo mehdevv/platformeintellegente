@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { AnimatePresence, motion, LayoutGroup } from 'framer-motion'
+import { AnimatePresence, LayoutGroup, motion } from 'framer-motion'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import Button from '@mui/material/Button'
@@ -34,7 +34,7 @@ import { fetchAiUsageState, recordAiMessageUsage } from '../lib/aiUsage'
 import { getFreshAccessToken } from '../lib/supabaseSession'
 
 const sidebarWidth = 280
-const sidebarCollapsedWidth = 72
+const sidebarCollapsed = 72
 
 export default function AIAgentPage() {
     const navigate = useNavigate()
@@ -58,6 +58,7 @@ export default function AIAgentPage() {
     const hasChat = messages.length > 0
     const apiReady = isAiApiConfigured()
     const getAccessToken = useCallback(async () => getFreshAccessToken(supabase), [supabase])
+    const inputDisabled = sending || !chatEnabled || (!aiUnlimited && aiLimit != null && aiUsed >= aiLimit)
 
     const handleRevealComplete = useCallback(messageId => {
         setMessages(prev =>
@@ -327,10 +328,10 @@ export default function AIAgentPage() {
         onSend: handleSend,
         hasChat,
         layoutId: 'ai-chat-bar',
-        disabled: sending || !chatEnabled,
+        disabled: inputDisabled,
     }
 
-    const drawerWidth = desktopSidebarOpen ? sidebarWidth : sidebarCollapsedWidth
+    const drawerWidth = desktopSidebarOpen ? sidebarWidth : sidebarCollapsed
 
     return (
         <LayoutGroup>
@@ -341,6 +342,7 @@ export default function AIAgentPage() {
                         width: drawerWidth,
                         display: { xs: 'none', lg: 'block' },
                         flexShrink: 0,
+                        transition: theme => theme.transitions.create('width', { duration: 280, easing: 'ease' }),
                         '& .MuiDrawer-paper': {
                             width: drawerWidth,
                             bgcolor: 'background.paper',
@@ -348,7 +350,7 @@ export default function AIAgentPage() {
                             borderColor: 'divider',
                             position: 'relative',
                             overflowX: 'hidden',
-                            transition: 'width 0.35s cubic-bezier(0.22, 1, 0.36, 1)',
+                            transition: theme => theme.transitions.create('width', { duration: 280, easing: 'ease' }),
                         },
                     }}
                 >
@@ -362,11 +364,9 @@ export default function AIAgentPage() {
                     ModalProps={{ keepMounted: true }}
                     sx={{
                         display: { xs: 'block', lg: 'none' },
-                        '& .MuiDrawer-paper': {
-                            width: sidebarWidth,
-                            transition: 'transform 0.35s cubic-bezier(0.22, 1, 0.36, 1)',
-                        },
+                        '& .MuiDrawer-paper': { width: sidebarWidth },
                     }}
+                    SlideProps={{ timeout: 280 }}
                 >
                     <AISidebar {...sidebarProps} isCollapsed={false} onCloseDrawer={() => setMobileSidebarOpen(false)} />
                 </Drawer>
@@ -415,47 +415,31 @@ export default function AIAgentPage() {
                         >
                             <Box component="img" src="/logo.png" alt="Researcha" sx={{ height: 28, width: 'auto' }} />
                         </Box>
-                        <Typography variant="subtitle2" fontWeight={800} sx={{ ml: 0.5, letterSpacing: '-0.01em' }}>
+                        <Typography variant="subtitle2" fontWeight={800} sx={{ ml: 0.5 }}>
                             Researcha AI
                         </Typography>
                         {!user && (
-                            <Button
-                                component={motion(Link)}
-                                whileHover={{ scale: 1.03 }}
-                                whileTap={{ scale: 0.97 }}
-                                to="/login"
-                                state={{ redirectTo: '/ai' }}
-                                size="small"
-                                sx={{ ml: 'auto', fontWeight: 700 }}
-                            >
+                            <Button component={Link} to="/login" state={{ redirectTo: '/ai' }} size="small" sx={{ ml: 'auto' }}>
                                 Sign in
                             </Button>
                         )}
                     </Box>
 
-                    <AnimatePresence mode="popLayout">
+                    <AnimatePresence>
                         {error && (
-                            <Alert
-                                component={motion.div}
-                                {...aiAlertSlide}
-                                severity="error"
-                                sx={{ mx: 2, mt: 1 }}
-                                onClose={() => setError('')}
-                            >
-                                {error}
-                            </Alert>
+                            <motion.div key="error" {...aiAlertSlide} style={{ margin: '8px 16px 0' }}>
+                                <Alert severity="error" onClose={() => setError('')} sx={{ borderRadius: 2 }}>
+                                    {error}
+                                </Alert>
+                            </motion.div>
                         )}
                         {!apiReady && (
-                            <Alert
-                                component={motion.div}
-                                initial={{ opacity: 0, y: -6 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                severity="warning"
-                                sx={{ mx: 2, mt: 1 }}
-                            >
-                                Set <code>VITE_AI_API_URL</code> in your frontend <code>.env</code> and run the backend (
-                                <code>uvicorn</code> in <code>backend/</code>).
-                            </Alert>
+                            <motion.div key="api-warn" {...aiAlertSlide} style={{ margin: '8px 16px 0' }}>
+                                <Alert severity="warning" sx={{ borderRadius: 2 }}>
+                                    Set <code>VITE_AI_API_URL</code> in your frontend <code>.env</code> and run the backend (
+                                    <code>uvicorn</code> in <code>backend/</code>).
+                                </Alert>
+                            </motion.div>
                         )}
                     </AnimatePresence>
 
@@ -491,38 +475,36 @@ export default function AIAgentPage() {
                                     >
                                         <Stack spacing={3} sx={{ maxWidth: 720, mx: 'auto' }}>
                                             <AnimatePresence initial={false}>
-                                                {messages.map(msg => (
-                                                    <motion.div
-                                                        key={msg.id}
-                                                        layout
-                                                        initial={false}
-                                                        animate={{ opacity: 1 }}
-                                                        exit={{ opacity: 0, scale: 0.98 }}
-                                                    >
-                                                        <AIMessageBubble
-                                                            msg={msg}
-                                                            onRevealComplete={
-                                                                msg.role === 'assistant' && msg.animating
-                                                                    ? () => handleRevealComplete(msg.id)
-                                                                    : undefined
-                                                            }
-                                                        />
-                                                    </motion.div>
-                                                ))}
+                                                {messages.map(msg => {
+                                                    const isEmptyStream =
+                                                        msg.role === 'assistant' && msg.streaming && !String(msg.content || '').trim()
+                                                    if (isEmptyStream) return null
+                                                    return (
+                                                        <motion.div key={msg.id} layout="position">
+                                                            <AIMessageBubble
+                                                                msg={msg}
+                                                                onRevealComplete={
+                                                                    msg.role === 'assistant' && msg.animating
+                                                                        ? () => handleRevealComplete(msg.id)
+                                                                        : undefined
+                                                                }
+                                                            />
+                                                        </motion.div>
+                                                    )
+                                                })}
                                             </AnimatePresence>
                                             <AnimatePresence>
-                                                {sending && messages[messages.length - 1]?.role === 'user' && (
-                                                    <AITypingIndicator key="typing" />
-                                                )}
+                                                {sending &&
+                                                    messages.some(
+                                                        m => m.role === 'assistant' && m.streaming && !String(m.content || '').trim(),
+                                                    ) && <AITypingIndicator key="typing" />}
                                             </AnimatePresence>
                                         </Stack>
                                     </Box>
                                     <AIChatBar {...chatBarProps} position="floating" />
                                 </Box>
                             ) : (
-                                <Box key="welcome" component={motion.div} {...aiPanelSwitch} sx={{ position: 'absolute', inset: 0 }}>
-                                    <AIWelcome sourcesCount={sourcesCount} chatBarProps={chatBarProps} />
-                                </Box>
+                                <AIWelcome key="welcome" chatBarProps={chatBarProps} />
                             )}
                         </AnimatePresence>
                     </Box>

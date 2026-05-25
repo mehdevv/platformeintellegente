@@ -33,73 +33,6 @@ function UserInitial({ name, email }) {
     return base.charAt(0).toUpperCase()
 }
 
-function ChatListItem({ conv, active, isCollapsed, onSelect, onDelete }) {
-    const btn = (
-        <ListItemButton
-            component={motion.div}
-            layout
-            onClick={() => onSelect(conv.id)}
-            whileHover={{ x: isCollapsed ? 0 : 4 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-            sx={{
-                borderRadius: 2,
-                mx: 0.5,
-                mb: 0.35,
-                py: 1.1,
-                bgcolor: active ? 'rgba(25, 127, 148, 0.1)' : 'transparent',
-                borderLeft: '3px solid',
-                borderLeftColor: active ? 'secondary.main' : 'transparent',
-                transition: 'background-color 0.2s ease',
-            }}
-        >
-            {isCollapsed ? (
-                <ChatBubbleOutlineIcon sx={{ fontSize: 20, color: active ? 'secondary.main' : 'text.secondary', mx: 'auto' }} />
-            ) : (
-                <>
-                    <ChatBubbleOutlineIcon
-                        sx={{ fontSize: 18, mr: 1.5, color: active ? 'secondary.main' : 'text.disabled', flexShrink: 0 }}
-                    />
-                    <ListItemText
-                        primary={conv.title || 'New chat'}
-                        secondary={formatChatDate(conv.updated_at || conv.created_at)}
-                        primaryTypographyProps={{
-                            noWrap: true,
-                            fontSize: '0.8125rem',
-                            fontWeight: active ? 700 : 500,
-                        }}
-                        secondaryTypographyProps={{ fontSize: '0.7rem' }}
-                    />
-                    <IconButton
-                        component={motion.button}
-                        whileHover={{ scale: 1.1, opacity: 1 }}
-                        whileTap={{ scale: 0.9 }}
-                        size="small"
-                        aria-label="Delete chat"
-                        onClick={e => {
-                            e.stopPropagation()
-                            onDelete?.(conv.id)
-                        }}
-                        sx={{
-                            opacity: 0,
-                            '.MuiListItemButton-root:hover &': { opacity: 0.75 },
-                        }}
-                    >
-                        <DeleteOutlineIcon sx={{ fontSize: 16 }} />
-                    </IconButton>
-                </>
-            )}
-        </ListItemButton>
-    )
-
-    return isCollapsed ? (
-        <Tooltip title={conv.title || 'Chat'} placement="right">
-            {btn}
-        </Tooltip>
-    ) : (
-        btn
-    )
-}
-
 export default function AISidebar({
     navigate,
     isCollapsed,
@@ -136,7 +69,7 @@ export default function AISidebar({
                         <Tooltip title="Back">
                             <IconButton
                                 component={motion.button}
-                                whileHover={{ scale: 1.08, x: -2 }}
+                                whileHover={{ scale: 1.06 }}
                                 whileTap={{ scale: 0.94 }}
                                 onClick={() => navigate(-1)}
                                 size="small"
@@ -148,7 +81,8 @@ export default function AISidebar({
                     ) : (
                         <Button
                             component={motion.button}
-                            whileHover={{ x: -3 }}
+                            whileHover={{ x: -2 }}
+                            whileTap={{ scale: 0.98 }}
                             startIcon={<ArrowBackIcon />}
                             onClick={() => navigate(-1)}
                             size="small"
@@ -162,6 +96,7 @@ export default function AISidebar({
                             component={motion.button}
                             whileHover={{ rotate: 90 }}
                             whileTap={{ scale: 0.9 }}
+                            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
                             onClick={onCloseDrawer}
                             size="small"
                             aria-label="Close menu"
@@ -179,12 +114,11 @@ export default function AISidebar({
                         onClick={onNewChat}
                         {...aiNewChatButton}
                         sx={{
-                            minWidth: isCollapsed ? 44 : 'auto',
-                            p: isCollapsed ? 1.25 : undefined,
+                            minWidth: isCollapsed ? 40 : 'auto',
+                            p: isCollapsed ? 1 : undefined,
                             justifyContent: 'center',
                             borderRadius: 2.5,
                             fontWeight: 700,
-                            boxShadow: '0 6px 20px rgba(25, 127, 148, 0.25)',
                         }}
                     >
                         <AddIcon sx={{ mr: isCollapsed ? 0 : 1 }} />
@@ -251,26 +185,92 @@ export default function AISidebar({
                         animate="visible"
                         dense
                         disablePadding
-                        sx={{ px: isCollapsed ? 0.5 : 1, listStyle: 'none' }}
+                        sx={{ px: isCollapsed ? 0.5 : 1, listStyle: 'none', m: 0, p: 0 }}
                     >
                         <AnimatePresence initial={false}>
-                            {conversations.map(conv => (
-                                <motion.li
-                                    key={conv.id}
-                                    variants={aiChatListItem}
-                                    layout
-                                    exit={{ opacity: 0, x: -12, transition: { duration: 0.18 } }}
-                                    style={{ listStyle: 'none' }}
-                                >
-                                    <ChatListItem
-                                        conv={conv}
-                                        active={conv.id === activeConversationId}
-                                        isCollapsed={isCollapsed}
-                                        onSelect={onSelectConversation}
-                                        onDelete={onDeleteConversation}
-                                    />
-                                </motion.li>
-                            ))}
+                            {conversations.map(conv => {
+                                const active = conv.id === activeConversationId
+                                const btn = (
+                                    <ListItemButton
+                                        selected={active}
+                                        onClick={() => onSelectConversation(conv.id)}
+                                        sx={{
+                                            borderRadius: 2,
+                                            mx: 0.5,
+                                            mb: 0.35,
+                                            py: 1.1,
+                                            '&.Mui-selected': {
+                                                bgcolor: 'rgba(25, 127, 148, 0.12)',
+                                                borderLeft: '3px solid',
+                                                borderLeftColor: 'secondary.main',
+                                            },
+                                        }}
+                                    >
+                                        {isCollapsed ? (
+                                            <ChatBubbleOutlineIcon
+                                                sx={{ fontSize: 20, color: active ? 'secondary.main' : 'text.secondary' }}
+                                            />
+                                        ) : (
+                                            <>
+                                                <ChatBubbleOutlineIcon
+                                                    sx={{
+                                                        fontSize: 18,
+                                                        mr: 1.5,
+                                                        color: active ? 'secondary.main' : 'text.disabled',
+                                                        flexShrink: 0,
+                                                    }}
+                                                />
+                                                <ListItemText
+                                                    primary={conv.title || 'New chat'}
+                                                    secondary={formatChatDate(conv.updated_at || conv.created_at)}
+                                                    primaryTypographyProps={{
+                                                        noWrap: true,
+                                                        fontSize: '0.8125rem',
+                                                        fontWeight: active ? 700 : 500,
+                                                    }}
+                                                    secondaryTypographyProps={{ fontSize: '0.7rem' }}
+                                                />
+                                                <IconButton
+                                                    component={motion.button}
+                                                    size="small"
+                                                    aria-label="Delete chat"
+                                                    whileHover={{ scale: 1.15, color: 'error.main' }}
+                                                    whileTap={{ scale: 0.9 }}
+                                                    onClick={e => {
+                                                        e.stopPropagation()
+                                                        onDeleteConversation?.(conv.id)
+                                                    }}
+                                                    sx={{
+                                                        opacity: 0,
+                                                        '.MuiListItemButton-root:hover &': { opacity: 0.75 },
+                                                    }}
+                                                >
+                                                    <DeleteOutlineIcon sx={{ fontSize: 16 }} />
+                                                </IconButton>
+                                            </>
+                                        )}
+                                    </ListItemButton>
+                                )
+                                return (
+                                    <motion.li
+                                        key={conv.id}
+                                        layout
+                                        variants={aiChatListItem}
+                                        initial="hidden"
+                                        animate="visible"
+                                        exit="exit"
+                                        style={{ listStyle: 'none' }}
+                                    >
+                                        {isCollapsed ? (
+                                            <Tooltip title={conv.title || 'Chat'} placement="right">
+                                                {btn}
+                                            </Tooltip>
+                                        ) : (
+                                            btn
+                                        )}
+                                    </motion.li>
+                                )
+                            })}
                         </AnimatePresence>
                     </List>
                 )}
@@ -278,7 +278,9 @@ export default function AISidebar({
 
             <Box
                 component={motion.div}
-                layout
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
                 sx={{
                     flexShrink: 0,
                     borderTop: '1px solid',
@@ -297,7 +299,7 @@ export default function AISidebar({
                                     width: 36,
                                     height: 36,
                                     borderRadius: '50%',
-                                    background: 'linear-gradient(135deg, #197f94, #1a2332)',
+                                    bgcolor: 'secondary.main',
                                     color: '#fff',
                                     display: 'flex',
                                     alignItems: 'center',
@@ -324,14 +326,14 @@ export default function AISidebar({
                                     width: 40,
                                     height: 40,
                                     borderRadius: '50%',
-                                    background: 'linear-gradient(135deg, #197f94, #1a2332)',
+                                    bgcolor: 'secondary.main',
                                     color: '#fff',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     fontWeight: 800,
                                     flexShrink: 0,
-                                    boxShadow: '0 4px 14px rgba(25, 127, 148, 0.3)',
+                                    boxShadow: '0 4px 14px rgba(25, 127, 148, 0.35)',
                                 }}
                             >
                                 <UserInitial name={profile?.full_name} email={profile?.email} />
@@ -353,15 +355,16 @@ export default function AISidebar({
                                     {planLabel}
                                 </Typography>
                             </Stack>
-                            <Typography
-                                component={motion(Link)}
-                                whileHover={{ x: 2 }}
-                                to="/dashboard/billing"
-                                variant="caption"
-                                sx={{ color: 'secondary.main', fontWeight: 600, textDecoration: 'none', flexShrink: 0 }}
-                            >
-                                Manage
-                            </Typography>
+                            <motion.div whileHover={{ x: 2 }} style={{ flexShrink: 0 }}>
+                                <Typography
+                                    component={Link}
+                                    to="/dashboard/billing"
+                                    variant="caption"
+                                    sx={{ color: 'secondary.main', fontWeight: 600, textDecoration: 'none' }}
+                                >
+                                    Manage
+                                </Typography>
+                            </motion.div>
                         </Stack>
 
                         <Box>
@@ -369,35 +372,29 @@ export default function AISidebar({
                                 {usageLabel}
                             </Typography>
                             {!unlimited && (
-                                <Box
-                                    component={motion.div}
-                                    initial={{ scaleX: 0, opacity: 0.6 }}
-                                    animate={{ scaleX: 1, opacity: 1 }}
-                                    transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                                    sx={{ transformOrigin: 'left' }}
-                                >
+                                <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} style={{ transformOrigin: 'left' }}>
                                     <LinearProgress
                                         variant="determinate"
                                         value={usagePct}
                                         color={usagePct >= 90 ? 'warning' : 'secondary'}
-                                        sx={{
-                                            height: 6,
-                                            borderRadius: 3,
-                                            bgcolor: 'rgba(25, 127, 148, 0.12)',
-                                        }}
+                                        sx={{ height: 6, borderRadius: 3 }}
                                     />
-                                </Box>
+                                </motion.div>
                             )}
                         </Box>
 
                         <Stack
-                            component={motion(Link)}
-                            whileHover={{ x: 4, color: 'secondary.main' }}
+                            component={Link}
                             direction="row"
                             alignItems="center"
                             spacing={0.75}
                             to="/dashboard/library"
-                            sx={{ textDecoration: 'none', color: 'text.secondary' }}
+                            sx={{
+                                textDecoration: 'none',
+                                color: 'text.secondary',
+                                transition: 'color 0.2s, transform 0.2s',
+                                '&:hover': { color: 'secondary.main', transform: 'translateX(4px)' },
+                            }}
                         >
                             <MenuBookIcon sx={{ fontSize: 18 }} />
                             <Typography variant="caption" fontWeight={600}>

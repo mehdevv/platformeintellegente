@@ -66,7 +66,18 @@ def _ensure_chat_configured(user_id: str) -> None:
         )
 
 
-@router.post("/chat", response_model=ChatResponse)
+@router.post(
+    "/chat",
+    responses={
+        200: {
+            "description": "JSON answer (stream=false) or SSE token stream (stream=true)",
+            "content": {
+                "application/json": {"schema": ChatResponse.model_json_schema()},
+                "text/event-stream": {},
+            },
+        }
+    },
+)
 async def chat(body: ChatRequest, user: AuthUser = Depends(require_user)):
     _ensure_chat_configured(user.id)
 

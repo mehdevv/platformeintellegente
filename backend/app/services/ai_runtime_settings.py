@@ -83,9 +83,14 @@ def normalize_ai_settings(raw: dict[str, Any] | None) -> dict[str, Any]:
 
 def _load_from_db() -> dict[str, Any]:
     sb = get_supabase()
-    row = sb.table("platform_settings").select("value").eq("key", AI_SETTINGS_KEY).maybe_single().execute()
-    data = row.data
-    value = data.get("value") if isinstance(data, dict) else None
+    try:
+        row = sb.table("platform_settings").select("value").eq("key", AI_SETTINGS_KEY).maybe_single().execute()
+    except Exception:
+        return deepcopy(DEFAULTS)
+    from app.services.supabase_db import _single_row_data
+
+    data = _single_row_data(row)
+    value = data.get("value") if data else None
     if not isinstance(value, dict):
         return deepcopy(DEFAULTS)
     return normalize_ai_settings(value)
